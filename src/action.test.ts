@@ -46,6 +46,43 @@ describe('createAction', () => {
     expect(eventSpy).toHaveBeenCalledWith(changedValue);
     expect(effectSpy).toHaveBeenCalledWith(changedValue);
   });
+  it('change units by condition', async () => {
+    const scope = fork();
+    const $store = createStore('');
+    const event = createEvent<string>();
+    const effectFx = createEffect<string, null>(() => null);
+    const changedValue = 'foo';
+    const action = createAction({
+      target: {
+        $store,
+        event,
+        effectFx,
+      },
+      fn: (target) => {
+        if (true) {
+          target.$store(changedValue);
+          target.event(changedValue);  
+        } else {
+          target.effectFx(changedValue);
+        }
+      },
+    });
+    const eventSpy = createSpy({
+      scope,
+      unit: event,
+    });
+    const effectSpy = createSpy({
+      scope,
+      unit: effectFx,
+    });
+
+    await allSettled(action, { scope });
+
+    expect(scope.getState($store)).toEqual(changedValue);
+    expect(eventSpy).toHaveBeenCalledOnce();
+    expect(effectSpy).not.toHaveBeenCalled();
+    expect(eventSpy).toHaveBeenCalledWith(changedValue);
+  });
   it('reinit store', async () => {
     const scope = fork();
     const $store = createStore('');
