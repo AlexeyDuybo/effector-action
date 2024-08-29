@@ -139,21 +139,18 @@ describe('createAction', () => {
 
     expect(reducerResult).toEqual(expectedState);
   });
-  it('throws error if store reset event called more than 1 time', async () => {
+  it('shows warning and apply last change if store reset event called more than 1 time', async () => {
+    const storeName = '$store';
+    const consoleErrorSpy = vitest.spyOn(console, 'error');
     const scope = fork();
-    let errorMessage;
     const $store = createStore('');
     const fn = vitest.fn((target: any) => {
-      try {
-        target.$store.reinit();
-        target.$store.reinit();
-      } catch (e: any) {
-        errorMessage = e.message;
-      }
+      target.$store.reinit();
+      target.$store.reinit();
     });
     const action = createAction({
       target: {
-        $store,
+        [storeName]: $store,
       },
       fn,
     });
@@ -164,25 +161,24 @@ describe('createAction', () => {
 
     await allSettled(action, { scope });
 
-    expect(errorMessage).toEqual(multiplyUnitCallErrorMessage);
+    expect(consoleErrorSpy).toHaveBeenCalledOnce();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${storeName}.reinit`))
     expect(reinitSpy).toHaveBeenCalledOnce();
   });
   it.each([createStore(''), createEvent<string>(), createEffect<string, null>(() => null)])(
-    'throws error if unit called more than 1 time',
+    'shows warning and apply last change if unit called more than 1 time',
     async (unit) => {
+      const unitName = 'unit';
+      const consoleErrorSpy = vitest.spyOn(console, 'error');
       const scope = fork();
-      let errorMessage;
+      const lastUnitChange = 'bar';
       const fn = vitest.fn((target: any) => {
-        try {
-          target.unit('foo');
-          target.unit('bar');
-        } catch (e: any) {
-          errorMessage = e.message;
-        }
+        target.unit('foo');
+        target.unit(lastUnitChange);
       });
       const action = createAction({
         target: {
-          unit,
+          [unitName]: unit,
         },
         fn,
       });
@@ -190,8 +186,10 @@ describe('createAction', () => {
 
       await allSettled(action, { scope });
 
-      expect(errorMessage).toEqual(multiplyUnitCallErrorMessage);
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${unitName}`))
       expect(unitSpy).toHaveBeenCalledOnce();
+      expect(unitSpy).toHaveBeenCalledWith(lastUnitChange);
     },
   );
   it('source object passed to fn', async () => {

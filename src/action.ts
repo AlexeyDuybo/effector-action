@@ -35,7 +35,7 @@ const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
 const getUnitSourceKey = () => `__unitSourceKey__`;
 
-export const multiplyUnitCallErrorMessage = 'Multiple calls of the same unit in "fn" are not allowed';
+export const multiplyUnitCallErrorMessage = (unitName: string) => `effector-action Warning. Unit: "${unitName}". Multiple calls of same target in "fn" is not allowed. Only last change will be applied`;
 
 export const createAction = <
   Target extends TargetShape,
@@ -77,7 +77,7 @@ export const createAction = <
         Object.entries(config.target).map(([unitName, unit]) => {
           const setter = (valueOrFunc: unknown) => {
             if (unitName in targetsToChange) {
-              throw new Error(multiplyUnitCallErrorMessage);
+              console.error(multiplyUnitCallErrorMessage(unitName));
             }
 
             const value =
@@ -92,7 +92,7 @@ export const createAction = <
             setter.reinit = () => {
               const resetKey = getResetKey(unitName);
               if (resetKey in targetsToChange) {
-                throw new Error(multiplyUnitCallErrorMessage);
+                console.error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
               }
               targetsToChange[resetKey] = undefined;
             };
