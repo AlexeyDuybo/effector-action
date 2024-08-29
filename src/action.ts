@@ -35,7 +35,10 @@ const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
 const getUnitSourceKey = () => `__unitSourceKey__`;
 
-export const multiplyUnitCallErrorMessage = (unitName: string) => `effector-action Warning. Unit: "${unitName}". Multiple calls of same target in "fn" is not allowed. Only last change will be applied`;
+export const multiplyUnitCallErrorMessage = (unitName: string) =>
+  `effector-action Warning. Unit: "${unitName}". Multiple calls of same target in "fn" is not allowed. Only last change will be applied`;
+export const asyncUnitChangeErrorMessage = (unitName: string) =>
+  `effector-action Warning. Unit: "${unitName}". Async unit changes are not allowed. All async changes will not be applied`;
 
 export const createAction = <
   Target extends TargetShape,
@@ -72,10 +75,13 @@ export const createAction = <
     source: source,
     fn: (source, clock) => {
       const targetsToChange: Record<string, any> = {};
-
+      let isFnEnded = false;
       const targetCallers = Object.fromEntries(
         Object.entries(config.target).map(([unitName, unit]) => {
           const setter = (valueOrFunc: unknown) => {
+            if (isFnEnded) {
+              console.error(asyncUnitChangeErrorMessage(unitName));
+            }
             if (unitName in targetsToChange) {
               console.error(multiplyUnitCallErrorMessage(unitName));
             }
@@ -90,6 +96,9 @@ export const createAction = <
 
           if (is.store(unit)) {
             setter.reinit = () => {
+              if (isFnEnded) {
+                console.error(asyncUnitChangeErrorMessage(unitName + '.reinit'));
+              }
               const resetKey = getResetKey(unitName);
               if (resetKey in targetsToChange) {
                 console.error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
@@ -109,6 +118,8 @@ export const createAction = <
         // @ts-expect-error
         config.fn(targetCallers as FnTarget, clock);
       }
+
+      isFnEnded = true;
 
       return targetsToChange;
     },

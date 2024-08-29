@@ -61,7 +61,7 @@ describe('createAction', () => {
       fn: (target) => {
         if (true) {
           target.$store(changedValue);
-          target.event(changedValue);  
+          target.event(changedValue);
         } else {
           target.effectFx(changedValue);
         }
@@ -162,7 +162,7 @@ describe('createAction', () => {
     await allSettled(action, { scope });
 
     expect(consoleErrorSpy).toHaveBeenCalledOnce();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${storeName}.reinit`))
+    expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${storeName}.reinit`));
     expect(reinitSpy).toHaveBeenCalledOnce();
   });
   it.each([createStore(''), createEvent<string>(), createEffect<string, null>(() => null)])(
@@ -187,7 +187,7 @@ describe('createAction', () => {
       await allSettled(action, { scope });
 
       expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${unitName}`))
+      expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${unitName}`));
       expect(unitSpy).toHaveBeenCalledOnce();
       expect(unitSpy).toHaveBeenCalledWith(lastUnitChange);
     },
