@@ -19,8 +19,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:watch": "vitest --watch",
+    "test": "vitest --typecheck",
+    "test:watch": "vitest --watch --typecheck",
     "format": "prettier --write .",
     "check-exports": "attw --pack ."
   },
