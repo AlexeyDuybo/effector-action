@@ -3,6 +3,16 @@
 This library provides api which allows changing the state of stores or calling events in an imperative style without breaking the static approach of the Effector. This should eliminate the problem when one synchronous task is split into several samples, or when the task turns into a mess of nested samples, conditions and splits.
 Therefore this abstraction can serve as a convenient replacement for one or more synchronous operators that are responsible for a single action.
 
+- [Install](#install)
+- [Usage](#usage)
+  - [Change units](#change-units)
+  - [Сhange store using reducer func](#change-store-using-reducer-func)
+  - [Reset store](#reset-store)
+  - [Clock](#clock)
+  - [Source](#source)
+- [Limitation](#limitation)
+- [Under the hood](#under-the-hood)
+
 ## Install
 
 ```bash
@@ -168,7 +178,9 @@ const clock = createAction({
 
 ## Limitation
 
-The unit change function cannot be called more than once. If the function is called twice, an exception is thrown.
+### Functions that change units should be called no more than once.
+
+If it was called multiple times, only the last call will be counted.
 
 ```ts
 const changeValues = createAction({
@@ -177,7 +189,26 @@ const changeValues = createAction({
   },
   fn: (target) => {
     target.$store('foo');
-    target.$store('bar'); // exception thrown: 'Multiple calls of the same unit in "fn" are not allowed'
+    target.$store('bar'); // only last call will be counted
+  },
+});
+
+changeValue();
+
+$store // state = bar
+```
+
+### Only sync function allowed in fn
+
+```ts
+const changeValues = createAction({
+  target: {
+    $users,
+  },
+  fn: async (target) => {
+    const data = await loadUsers();
+
+    target.$users(data) // will not work!
   },
 });
 ```
