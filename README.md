@@ -6,7 +6,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
 - [Install](#install)
 - [Usage](#usage)
   - [Change units](#change-units)
-  - [Сhange store using reducer func](#change-store-using-reducer-func)
+  - [Сhange store using reducer func](#сhange-store-using-reducer-func)
   - [Reset store](#reset-store)
   - [Clock](#clock)
   - [Source](#source)
