@@ -1,5 +1,5 @@
 import {
-  Clock,
+  // Clock,
   Store,
   UnitTargetable,
   GetShapeValue,
@@ -18,8 +18,9 @@ type IsNever<T, Then, Else> = [T] extends [never] ? Then : Else;
 
 type TargetShape = Record<string, UnitTargetable<any>>;
 type SoureShape = Record<string, Store<any>>;
+type ClockShape<T> = Unit<T> | Unit<T>[];
 
-type GetClockValue<Clc extends Clock<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
+type GetClockValue<Clc extends ClockShape<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
 
 type CreateCallableTargets<Target extends TargetShape> = {
   [K in keyof Target]: Target[K] extends StoreWritable<any>
@@ -30,6 +31,14 @@ type CreateCallableTargets<Target extends TargetShape> = {
       }
     : (value: UnitValue<Target[K]>) => UnitValue<Target[K]>;
 };
+
+type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
+  Clc, 
+  Then,
+  Clc extends ClockShape<void>
+    ? Else
+    : Then
+>;
 
 const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
@@ -44,10 +53,10 @@ export const createAction = <
   Target extends TargetShape,
   Fn extends IsNever<
     Src,
-    (target: FnTarget, clock: FnClock) => void,
-    (target: FnTarget, source: GetShapeValue<Src>, clock: FnClock) => void
+    (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
+    (target: FnTarget, source: GetShapeValue<Src>, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void
   >,
-  Clc extends Clock<any> = never,
+  Clc extends ClockShape<any> = never,
   Src extends SoureShape | Store<any> = never,
   FnTarget = CreateCallableTargets<Target>,
   FnClock = IsNever<Clc, any, GetClockValue<Clc>>,
@@ -125,7 +134,6 @@ export const createAction = <
         const fnSource = is.unit(config.source) ? source[getUnitSourceKey()] : source;
         config.fn(targetCallers as FnTarget, fnSource, clock);
       } else {
-        // @ts-expect-error
         config.fn(targetCallers as FnTarget, clock);
       }
 

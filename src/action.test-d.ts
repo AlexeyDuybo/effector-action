@@ -31,10 +31,8 @@ describe('createAction/types', () => {
     createAction({
         clock: createEvent(),
         target: {},
-        fn: (...params) => {
-            // @ts-expect-error todo
-            expectTypeOf(params).not.toHaveProperty('1')
-        }
+        // @ts-expect-error
+        fn: (target, clock) => {}
     });
     createAction({
         clock: [createEvent<string>(), createStore(123), createEffect<boolean, void>()],
@@ -51,6 +49,12 @@ describe('createAction/types', () => {
             expectTypeOf(clock).toEqualTypeOf<string | number | boolean>()
         }
     });
+    const nothing = createAction({
+        clock: createEvent(),
+        target: {},
+        fn: (target) => {}
+    });
+    expectTypeOf(nothing).toBeVoid()
   })
 
   it('returned clock', () => {
