@@ -80,7 +80,6 @@ describe('createAction/types', () => {
         target: {},
         fn: (_) => {}
     });
-    // @ts-expect-error todo
     expectTypeOf(clock4).toEqualTypeOf<EventCallable<void>>()
 
     const clock5 = createAction({

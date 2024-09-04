@@ -56,7 +56,17 @@ export const createAction = <
   source?: Src;
   target: Target;
   fn: Fn;
-}): IsNever<Clc, EventCallable<Parameters<Fn>[IsNever<Src, 1, 2>]>, void> => {
+}): IsNever<
+      Clc, 
+      EventCallable<
+        IsNever<
+          Src,
+          Parameters<Fn> extends [any, infer Clock] ? Clock : void,
+          Parameters<Fn> extends [any, any, infer Clock] ? Clock : void
+        >
+      >,
+      void
+    > => {
   const clock = config.clock ?? createEvent<any>();
   const target: TargetShape = {
     ...config.target,
