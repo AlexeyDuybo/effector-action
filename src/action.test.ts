@@ -11,7 +11,7 @@ const createSpy = ({ scope, unit }: { scope: Scope; unit: Unit<any> }) => {
 const someTarget = { foo: createStore('') };
 
 describe('createAction', () => {
-  it('change units', async () => {
+  it('change units in object shape', async () => {
     const scope = fork();
     const $store = createStore('');
     const event = createEvent<string>();
@@ -46,6 +46,61 @@ describe('createAction', () => {
     expect(eventSpy).toHaveBeenCalledWith(changedValue);
     expect(effectSpy).toHaveBeenCalledWith(changedValue);
   });
+  it('changes single store', async () => {
+    const scope = fork();
+    const $store = createStore('');
+    const changedValue = 'foo';
+    const action = createAction({
+      target: $store,
+      fn: (target) => {
+        target(changedValue);
+      },
+    });
+
+    await allSettled(action, { scope });
+
+    expect(scope.getState($store)).toEqual(changedValue);
+  })
+  it('calls single event', async () => {
+    const scope = fork();
+    const event = createEvent<string>();
+    const changedValue = 'foo';
+    const action = createAction({
+      target: event,
+      fn: (target) => {
+        target(changedValue);
+      },
+    });
+    const eventSpy = createSpy({
+      scope,
+      unit: event,
+    });
+
+    await allSettled(action, { scope });
+
+    expect(eventSpy).toHaveBeenCalledOnce();
+    expect(eventSpy).toHaveBeenCalledWith(changedValue);
+  })
+  it('calls single effect', async () => {
+    const scope = fork();
+    const effectFx = createEffect<string, null>(() => null);
+    const changedValue = 'foo';
+    const action = createAction({
+      target: effectFx,
+      fn: (target) => {
+        target(changedValue);
+      },
+    });
+    const effectSpy = createSpy({
+      scope,
+      unit: effectFx,
+    });
+
+    await allSettled(action, { scope });
+
+    expect(effectSpy).toHaveBeenCalledOnce();
+    expect(effectSpy).toHaveBeenCalledWith(changedValue);
+  })
   it('change units by condition', async () => {
     const scope = fork();
     const $store = createStore('');
@@ -83,7 +138,7 @@ describe('createAction', () => {
     expect(effectSpy).not.toHaveBeenCalled();
     expect(eventSpy).toHaveBeenCalledWith(changedValue);
   });
-  it('reinit store', async () => {
+  it('reinit store in object shape', async () => {
     const scope = fork();
     const $store = createStore('');
     const action = createAction({
@@ -93,6 +148,22 @@ describe('createAction', () => {
       fn: (target) => {
         target.$store.reinit();
       },
+    });
+    const reinitSpy = createSpy({
+      scope,
+      unit: $store.reinit,
+    });
+
+    await allSettled(action, { scope });
+
+    expect(reinitSpy).toHaveBeenCalledOnce();
+  });
+  it('reinit single store', async () => {
+    const scope = fork();
+    const $store = createStore('');
+    const action = createAction({
+      target: $store,
+      fn: (target) => { target.reinit() },
     });
     const reinitSpy = createSpy({
       scope,

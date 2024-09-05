@@ -18,6 +18,42 @@ describe('createAction/types', () => {
             }>()
         }
     });
+
+    createAction({
+        target: createStore(''),
+        fn: (target) => {
+            expectTypeOf(target).toEqualTypeOf<((valueOfFunc: string | ((state: string) => string)) => string) & { reinit: () => void }>()
+        }
+    });
+
+    const target = createEvent();
+    createAction({
+        target,
+        fn: (target) => {
+            expectTypeOf(target).toEqualTypeOf<((valueOfFunc: void) => void)>()
+        }
+    });
+
+    createAction({
+        target: createEvent<string>(),
+        fn: (target) => {
+            expectTypeOf(target).toEqualTypeOf<((valueOfFunc: string) => string)>()
+        }
+    });
+
+    createAction({
+        target: createEffect<void, string>(),
+        fn: (target) => {
+            expectTypeOf(target).toEqualTypeOf<((valueOfFunc: void) => void)>()
+        }
+    });
+
+    createAction({
+        target: createEffect<string, string>(),
+        fn: (target) => {
+            expectTypeOf(target).toEqualTypeOf<((valueOfFunc: string) => string)>()
+        }
+    });
   })
 
   it('external clock', () => {

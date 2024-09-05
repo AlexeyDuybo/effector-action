@@ -1,5 +1,4 @@
 import {
-  // Clock,
   Store,
   UnitTargetable,
   GetShapeValue,
@@ -22,15 +21,17 @@ type ClockShape<T> = Unit<T> | Unit<T>[];
 
 type GetClockValue<Clc extends ClockShape<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
 
-type CreateCallableTargets<Target extends TargetShape> = {
-  [K in keyof Target]: Target[K] extends StoreWritable<any>
-    ? ((
-        valueOrFn: UnitValue<Target[K]> | ((value: UnitValue<Target[K]>) => UnitValue<Target[K]>),
-      ) => UnitValue<Target[K]>) & {
-        reinit: () => void;
-      }
-    : (value: UnitValue<Target[K]>) => UnitValue<Target[K]>;
-};
+type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> = Target extends Record<string, UnitTargetable<any>>
+  ? { [K in keyof Target]: CreateCallableTargets<Target[K]> }
+  : Target extends UnitTargetable<any>
+    ? Target extends StoreWritable<any>
+        ? ((
+            valueOrFn: UnitValue<Target> | ((value: UnitValue<Target>) => UnitValue<Target>),
+          ) => UnitValue<Target>) & {
+            reinit: () => void;
+          }
+        : (value: UnitValue<Target>) => UnitValue<Target>
+    : never
 
 type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
   Clc, 
@@ -43,6 +44,7 @@ type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
 const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
 const getUnitSourceKey = () => `__unitSourceKey__`;
+const getUnitTargetKey = () => `__unitTargetKey__`;
 
 export const multiplyUnitCallErrorMessage = (unitName: string) =>
   `effector-action Warning. Unit: "${unitName}". Multiple calls of same target in "fn" is not allowed. Only last change will be applied`;
@@ -50,7 +52,7 @@ export const asyncUnitChangeErrorMessage = (unitName: string) =>
   `effector-action Warning. Unit: "${unitName}". Async unit changes are not allowed. All async changes will not be applied`;
 
 export const createAction = <
-  Target extends TargetShape,
+  Target extends TargetShape | UnitTargetable<any>,
   Fn extends IsNever<
     Src,
     (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
@@ -77,12 +79,10 @@ export const createAction = <
       void
     > => {
   const clock = config.clock ?? createEvent<any>();
-  const target: TargetShape = {
-    ...config.target,
-  };
+  const target: TargetShape = is.unit(config.target) ? { [getUnitTargetKey()]: config.target } : { ...config.target };
   const source: SoureShape = is.unit(config.source) ? { [getUnitSourceKey()]: config.source } : { ...config.source };
 
-  Object.entries(config.target).forEach(([targetName, targetUnit]) => {
+  Object.entries(target).forEach(([targetName, targetUnit]) => {
     if (is.store(targetUnit)) {
       target[getResetKey(targetName)] = targetUnit.reinit;
       source[getStoreForPrevValueKey(targetName)] = targetUnit;
@@ -95,46 +95,54 @@ export const createAction = <
     fn: (source, clock) => {
       const targetsToChange: Record<string, any> = {};
       let isFnEnded = false;
-      const targetCallers = Object.fromEntries(
-        Object.entries(config.target).map(([unitName, unit]) => {
-          const setter = (valueOrFunc: unknown) => {
-            if (isFnEnded) {
-              console.error(asyncUnitChangeErrorMessage(unitName));
-            }
-            if (unitName in targetsToChange) {
-              console.error(multiplyUnitCallErrorMessage(unitName));
-            }
 
-            const value =
-              typeof valueOrFunc === 'function' ? valueOrFunc(source[getStoreForPrevValueKey(unitName)]) : valueOrFunc;
-
-            targetsToChange[unitName] = value;
-
-            return value;
-          };
-
-          if (is.store(unit)) {
-            setter.reinit = () => {
-              if (isFnEnded) {
-                console.error(asyncUnitChangeErrorMessage(unitName + '.reinit'));
-              }
-              const resetKey = getResetKey(unitName);
-              if (resetKey in targetsToChange) {
-                console.error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
-              }
-              targetsToChange[resetKey] = undefined;
-            };
+      const createSetter = (unitName: string, unit: Unit<any>) => {
+        const setter = (valueOrFunc: unknown) => {
+          if (isFnEnded) {
+            console.error(asyncUnitChangeErrorMessage(unitName));
+          }
+          if (unitName in targetsToChange) {
+            console.error(multiplyUnitCallErrorMessage(unitName));
           }
 
-          return [unitName, setter];
-        }),
-      );
+          const value =
+            typeof valueOrFunc === 'function' ? valueOrFunc(source[getStoreForPrevValueKey(unitName)]) : valueOrFunc;
+
+          targetsToChange[unitName] = value;
+
+          return value;
+        };
+
+        if (is.store(unit)) {
+          setter.reinit = () => {
+            if (isFnEnded) {
+              console.error(asyncUnitChangeErrorMessage(unitName + '.reinit'));
+            }
+            const resetKey = getResetKey(unitName);
+            if (resetKey in targetsToChange) {
+              console.error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
+            }
+            targetsToChange[resetKey] = undefined;
+          };
+        }
+
+        return setter;
+      };
+
+      const fnTarget = is.unit(config.target)
+        ? createSetter(getUnitTargetKey(), config.target)
+        : Object.fromEntries(
+          Object.entries(config.target).map(([unitName, unit]) => [
+            unitName,
+            createSetter(unitName, unit)
+          ])
+        );
 
       if (config.source) {
         const fnSource = is.unit(config.source) ? source[getUnitSourceKey()] : source;
-        config.fn(targetCallers as FnTarget, fnSource, clock);
+        config.fn(fnTarget as FnTarget, fnSource, clock);
       } else {
-        config.fn(targetCallers as FnTarget, clock);
+        config.fn(fnTarget as FnTarget, clock);
       }
 
       isFnEnded = true;

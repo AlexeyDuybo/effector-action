@@ -50,6 +50,21 @@ const changeValues = createAction({
 changeValues();
 ```
 
+Or you can change single unit
+
+```ts
+import { createAction } from 'effector-action';
+
+const $store = createStore('');
+
+const changeValue = createAction({
+  target: $store,
+  fn: (target) => { target('foo') },
+});
+
+changeValue();
+```
+
 You can change the specified units by condition
 
 ```ts
