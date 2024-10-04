@@ -10,6 +10,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Reset store](#reset-store)
   - [Clock](#clock)
   - [Source](#source)
+  - [Removing dollar prefix from store names in source](#removing-dollar-prefix-from-store-names-in-source)
 - [Limitation](#limitation)
 - [Under the hood](#under-the-hood)
 
@@ -190,6 +191,24 @@ const clock = createAction({
     }
     target,
     fn: (target, { foo, bar }, clock: string) => {};
+})
+```
+
+### Removing dollar prefix from store names in source
+
+To avoid duplication of store names in the source, dollar prefixes are removed automatically
+
+```ts
+const clock = createAction({
+    source: {
+        $longStoreName1 // short naming
+        longStoreName2: $longStoreName2 // default naming
+    }
+    target,
+    fn: (
+      target, { longStoreName1, longStoreName2 }, clock: string) => {
+        target.doSomething(longStoreName1) // dollar prefix removed!
+      };
 })
 ```
 

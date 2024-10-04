@@ -1,7 +1,6 @@
 import {
   Store,
   UnitTargetable,
-  GetShapeValue,
   EventCallable,
   Unit,
   UnitValue,
@@ -13,6 +12,8 @@ import {
 } from 'effector';
 import { spread } from 'patronum/spread';
 
+type RemoveDollarPrefix<Key extends string> = Key extends `$${infer K}` ? K : Key;
+
 type IsNever<T, Then, Else> = [T] extends [never] ? Then : Else;
 
 type TargetShape = Record<string, UnitTargetable<any>>;
@@ -20,6 +21,10 @@ type SoureShape = Record<string, Store<any>>;
 type ClockShape<T> = Unit<T> | Unit<T>[];
 
 type GetClockValue<Clc extends ClockShape<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
+type GetSourceValue<Src extends Store<any> | SoureShape> =
+  Src extends Store<infer Value>
+    ? Value
+    : { [K in RemoveDollarPrefix<keyof Src & string>]: UnitValue<Src[keyof Src & IsNever<K & keyof Src, `$${K}`, K>]> };
 
 type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
   Target extends Record<string, UnitTargetable<any>>
@@ -55,7 +60,7 @@ export const createAction = <
     (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
     (
       target: FnTarget,
-      source: GetShapeValue<Src>,
+      source: GetSourceValue<Src>,
       ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
     ) => void
   >,
@@ -79,9 +84,14 @@ export const createAction = <
   >,
   void
 > => {
+  const passedSource = config.source;
+  const isSourceUnit = is.unit(passedSource);
+
   const clock = config.clock ?? createEvent<any>();
   const target: TargetShape = is.unit(config.target) ? { [getUnitTargetKey()]: config.target } : { ...config.target };
-  const source: SoureShape = is.unit(config.source) ? { [getUnitSourceKey()]: config.source } : { ...config.source };
+  const source: SoureShape = isSourceUnit
+    ? { [getUnitSourceKey()]: passedSource }
+    : removeDollarPrefix({ ...passedSource });
 
   Object.entries(target).forEach(([targetName, targetUnit]) => {
     if (is.store(targetUnit)) {
@@ -136,8 +146,8 @@ export const createAction = <
             Object.entries(config.target).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
           );
 
-      if (config.source) {
-        const fnSource = is.unit(config.source) ? source[getUnitSourceKey()] : source;
+      if (passedSource) {
+        const fnSource = isSourceUnit ? source[getUnitSourceKey()] : source;
         config.fn(fnTarget as FnTarget, fnSource, clock);
       } else {
         config.fn(fnTarget as FnTarget, clock);
@@ -156,4 +166,10 @@ export const createAction = <
   }
   // @ts-expect-error
   return clock;
+};
+
+const removeDollarPrefix = (sourceShape: SoureShape): SoureShape => {
+  return Object.fromEntries(
+    Object.entries(sourceShape).map(([key, store]) => [key.startsWith('$') ? key.substring(1) : key, store]),
+  );
 };

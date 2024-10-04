@@ -150,5 +150,25 @@ describe('createAction/types', () => {
         expectTypeOf(source).toEqualTypeOf<{ foo: string; bar: number }>();
       },
     });
+    createAction({
+      source: {
+        $foo: createStore(''),
+        $bar: createStore(1),
+      },
+      target: {},
+      fn: (_, source) => {
+        expectTypeOf(source).toEqualTypeOf<{ foo: string; bar: number }>();
+      },
+    });
+    createAction({
+      source: {
+        $foo: createStore(''),
+        bar: createStore(1),
+      },
+      target: {},
+      fn: (_, source) => {
+        expectTypeOf(source).toEqualTypeOf<{ foo: string; bar: number }>();
+      },
+    });
   });
 });

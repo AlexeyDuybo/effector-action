@@ -287,6 +287,28 @@ describe('createAction', () => {
     expect(fn).toHaveBeenCalledOnce();
     expect(fn.mock.calls[0]?.[1]).toEqual(expect.objectContaining(expectedSourceValue));
   });
+  it('removes dollar prefix in source object', async () => {
+    const scope = fork();
+    const fn = vitest.fn();
+    const sourceObj = {
+      $foo: createStore('123'),
+      bar: createStore(123),
+    };
+    const expectedSourceValue = {
+      foo: sourceObj.$foo.defaultState,
+      bar: sourceObj.bar.defaultState,
+    };
+    const action = createAction({
+      source: sourceObj,
+      target: { foo: createStore('') },
+      fn,
+    });
+
+    await allSettled(action, { scope });
+
+    expect(fn).toHaveBeenCalledOnce();
+    expect(fn.mock.calls[0]?.[1]).toEqual(expect.objectContaining(expectedSourceValue));
+  });
   it('source unit passed to fn', async () => {
     const scope = fork();
     const fn = vitest.fn();
