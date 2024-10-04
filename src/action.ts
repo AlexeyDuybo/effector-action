@@ -21,24 +21,21 @@ type ClockShape<T> = Unit<T> | Unit<T>[];
 
 type GetClockValue<Clc extends ClockShape<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
 
-type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> = Target extends Record<string, UnitTargetable<any>>
-  ? { [K in keyof Target]: CreateCallableTargets<Target[K]> }
-  : Target extends UnitTargetable<any>
-    ? Target extends StoreWritable<any>
-        ? ((
-            valueOrFn: UnitValue<Target> | ((value: UnitValue<Target>) => UnitValue<Target>),
-          ) => UnitValue<Target>) & {
+type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
+  Target extends Record<string, UnitTargetable<any>>
+    ? { [K in keyof Target]: CreateCallableTargets<Target[K]> }
+    : Target extends UnitTargetable<any>
+      ? Target extends StoreWritable<any>
+        ? ((valueOrFn: UnitValue<Target> | ((value: UnitValue<Target>) => UnitValue<Target>)) => UnitValue<Target>) & {
             reinit: () => void;
           }
         : (value: UnitValue<Target>) => UnitValue<Target>
-    : never
+      : never;
 
 type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
-  Clc, 
+  Clc,
   Then,
-  Clc extends ClockShape<void>
-    ? Else
-    : Then
+  Clc extends ClockShape<void> ? Else : Then
 >;
 
 const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
@@ -56,7 +53,11 @@ export const createAction = <
   Fn extends IsNever<
     Src,
     (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
-    (target: FnTarget, source: GetShapeValue<Src>, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void
+    (
+      target: FnTarget,
+      source: GetShapeValue<Src>,
+      ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
+    ) => void
   >,
   Clc extends ClockShape<any> = never,
   Src extends SoureShape | Store<any> = never,
@@ -68,16 +69,16 @@ export const createAction = <
   target: Target;
   fn: Fn;
 }): IsNever<
-      Clc, 
-      EventCallable<
-        IsNever<
-          Src,
-          Parameters<Fn> extends [any, infer Clock] ? Clock : void,
-          Parameters<Fn> extends [any, any, infer Clock] ? Clock : void
-        >
-      >,
-      void
-    > => {
+  Clc,
+  EventCallable<
+    IsNever<
+      Src,
+      Parameters<Fn> extends [any, infer Clock] ? Clock : void,
+      Parameters<Fn> extends [any, any, infer Clock] ? Clock : void
+    >
+  >,
+  void
+> => {
   const clock = config.clock ?? createEvent<any>();
   const target: TargetShape = is.unit(config.target) ? { [getUnitTargetKey()]: config.target } : { ...config.target };
   const source: SoureShape = is.unit(config.source) ? { [getUnitSourceKey()]: config.source } : { ...config.source };
@@ -132,11 +133,8 @@ export const createAction = <
       const fnTarget = is.unit(config.target)
         ? createSetter(getUnitTargetKey(), config.target)
         : Object.fromEntries(
-          Object.entries(config.target).map(([unitName, unit]) => [
-            unitName,
-            createSetter(unitName, unit)
-          ])
-        );
+            Object.entries(config.target).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
+          );
 
       if (config.source) {
         const fnSource = is.unit(config.source) ? source[getUnitSourceKey()] : source;

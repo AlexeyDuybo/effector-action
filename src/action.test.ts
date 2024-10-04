@@ -60,7 +60,7 @@ describe('createAction', () => {
     await allSettled(action, { scope });
 
     expect(scope.getState($store)).toEqual(changedValue);
-  })
+  });
   it('calls single event', async () => {
     const scope = fork();
     const event = createEvent<string>();
@@ -80,7 +80,7 @@ describe('createAction', () => {
 
     expect(eventSpy).toHaveBeenCalledOnce();
     expect(eventSpy).toHaveBeenCalledWith(changedValue);
-  })
+  });
   it('calls single effect', async () => {
     const scope = fork();
     const effectFx = createEffect<string, null>(() => null);
@@ -100,7 +100,7 @@ describe('createAction', () => {
 
     expect(effectSpy).toHaveBeenCalledOnce();
     expect(effectSpy).toHaveBeenCalledWith(changedValue);
-  })
+  });
   it('change units by condition', async () => {
     const scope = fork();
     const $store = createStore('');
@@ -163,7 +163,9 @@ describe('createAction', () => {
     const $store = createStore('');
     const action = createAction({
       target: $store,
-      fn: (target) => { target.reinit() },
+      fn: (target) => {
+        target.reinit();
+      },
     });
     const reinitSpy = createSpy({
       scope,

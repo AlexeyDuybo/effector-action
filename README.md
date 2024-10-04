@@ -59,7 +59,9 @@ const $store = createStore('');
 
 const changeValue = createAction({
   target: $store,
-  fn: (target) => { target('foo') },
+  fn: (target) => {
+    target('foo');
+  },
 });
 
 changeValue();
@@ -210,7 +212,7 @@ const changeValues = createAction({
 
 changeValue();
 
-$store // state = bar
+$store; // state = bar
 ```
 
 ### Only sync function allowed in fn
@@ -223,7 +225,7 @@ const changeValues = createAction({
   fn: async (target) => {
     const data = await loadUsers();
 
-    target.$users(data) // will not work!
+    target.$users(data); // will not work!
   },
 });
 ```
