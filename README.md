@@ -182,13 +182,16 @@ const clock = createAction({
 
 ### Alternative api for external clock usage
 
-You can specify external clock in the first argument. Instead of passing it in config.
+You can specify external clock in the first argument.
 
 ```ts
+const inputChanged = createEvent<string>();
+const $lowerCaseInput = createStore('');
+
 createAction(inputChanged, {
-  target,
+  target: { $lowerCaseInput },
   fn: (target, clock) => {
-    target.$someStore(clock.toLowerCase());
+    target.$lowerCaseInput(clock.toLowerCase());
   },
 });
 ```
