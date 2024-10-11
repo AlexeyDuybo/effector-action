@@ -59,8 +59,23 @@ describe('createAction/types', () => {
   });
 
   it('external clock', () => {
+    createAction(createEvent<string>(), {
+      // @ts-expect-error
+      clock: createEvent<string>(),
+      target: {},
+      fn: (_, clock) => {
+        expectTypeOf(clock).toBeString();
+      },
+    });
+
     createAction({
       clock: createEvent<string>(),
+      target: {},
+      fn: (_, clock) => {
+        expectTypeOf(clock).toBeString();
+      },
+    });
+    createAction(createEvent<string>(), {
       target: {},
       fn: (_, clock) => {
         expectTypeOf(clock).toBeString();
@@ -72,8 +87,19 @@ describe('createAction/types', () => {
       // @ts-expect-error
       fn: (target, clock) => {},
     });
+    createAction(createEvent(), {
+      target: {},
+      // @ts-expect-error
+      fn: (target, clock) => {},
+    });
     createAction({
       clock: [createEvent<string>(), createStore(123), createEffect<boolean, void>()],
+      target: {},
+      fn: (_, clock) => {
+        expectTypeOf(clock).toEqualTypeOf<string | number | boolean>();
+      },
+    });
+    createAction([createEvent<string>(), createStore(123), createEffect<boolean, void>()], {
       target: {},
       fn: (_, clock) => {
         expectTypeOf(clock).toEqualTypeOf<string | number | boolean>();
@@ -87,12 +113,22 @@ describe('createAction/types', () => {
         expectTypeOf(clock).toEqualTypeOf<string | number | boolean>();
       },
     });
-    const nothing = createAction({
+    createAction([createEvent<string>(), createStore(123), createEffect<boolean, void>()], {
+      source: createStore(''),
+      target: {},
+      fn: (_, __, clock) => {
+        expectTypeOf(clock).toEqualTypeOf<string | number | boolean>();
+      },
+    });
+    expectTypeOf(createAction({
       clock: createEvent(),
       target: {},
       fn: (target) => {},
-    });
-    expectTypeOf(nothing).toBeVoid();
+    })).toBeVoid();
+    expectTypeOf(createAction(createEvent(), {
+      target: {},
+      fn: (target) => {},
+    })).toBeVoid();
   });
 
   it('returned clock', () => {

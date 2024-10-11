@@ -9,6 +9,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Сhange store using reducer func](#сhange-store-using-reducer-func)
   - [Reset store](#reset-store)
   - [Clock](#clock)
+  - [Alternative api for external clock usage (Recommended)](#alternative-api-for-external-clock-usage)
   - [Source](#source)
   - [Removing dollar prefix from store names in source](#removing-dollar-prefix-from-store-names-in-source)
 - [Limitation](#limitation)
@@ -178,6 +179,27 @@ const clock = createAction({
 
 // clock = Event<string>
 ```
+
+### Alternative api for external clock usage
+
+You can specify external clock in the first argument. Instead of passing it in config.
+
+```ts
+createAction(inputChanged, {
+  target,
+  fn: (target, clock) => {
+    target.$someStore(clock.toLowerCase());
+  },
+});
+```
+
+I recommend using this method because you can see the clock name even if the code blocks are folded in your ide.
+
+<img src="./docs/img/clock-as-first-arg.png" alt="clock as first arg" width="400"/>
+
+VS When clock is in the config you don't see its name
+
+<img src="./docs/img/clock-in-cfg.png" alt="clock as first arg" width="400"/>
 
 ### Source
 

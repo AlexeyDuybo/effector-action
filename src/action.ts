@@ -43,6 +43,34 @@ type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
   Clc extends ClockShape<void> ? Else : Then
 >;
 
+type ActionResult<Clc, Src, Fn extends (...args: any[]) => any> = IsNever<
+Clc,
+  EventCallable<
+    IsNever<
+      Src,
+      Parameters<Fn> extends [any, infer Clock] ? Clock : void,
+      Parameters<Fn> extends [any, any, infer Clock] ? Clock : void
+    >
+  >,
+  void
+  >;
+
+type ActionFn<
+    Target extends TargetShape | UnitTargetable<any>,
+    Clc extends ClockShape<any> = never,
+    Src extends SoureShape | Store<any> = never,
+    FnTarget = CreateCallableTargets<Target>,
+    FnClock = IsNever<Clc, any, GetClockValue<Clc>>,
+> = IsNever<
+Src,
+(target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
+(
+  target: FnTarget,
+  source: GetSourceValue<Src>,
+  ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
+) => void
+>
+
 const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
 const getUnitSourceKey = () => `__unitSourceKey__`;
@@ -53,43 +81,74 @@ export const multiplyUnitCallErrorMessage = (unitName: string) =>
 export const asyncUnitChangeErrorMessage = (unitName: string) =>
   `effector-action Warning. Unit: "${unitName}". Async unit changes are not allowed. All async changes will not be applied`;
 
-export const createAction = <
+export function createAction <
   Target extends TargetShape | UnitTargetable<any>,
-  Fn extends IsNever<
-    Src,
-    (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
-    (
-      target: FnTarget,
-      source: GetSourceValue<Src>,
-      ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
-    ) => void
-  >,
+  Fn extends ActionFn<Target, Clc, Src>,
   Clc extends ClockShape<any> = never,
   Src extends SoureShape | Store<any> = never,
-  FnTarget = CreateCallableTargets<Target>,
-  FnClock = IsNever<Clc, any, GetClockValue<Clc>>,
 >(config: {
   clock?: Clc;
   source?: Src;
   target: Target;
   fn: Fn;
-}): IsNever<
-  Clc,
-  EventCallable<
-    IsNever<
-      Src,
-      Parameters<Fn> extends [any, infer Clock] ? Clock : void,
-      Parameters<Fn> extends [any, any, infer Clock] ? Clock : void
-    >
-  >,
-  void
-> => {
-  const passedSource = config.source;
+}): ActionResult<Clc, Src, Fn>;
+export function createAction <
+  Target extends TargetShape | UnitTargetable<any>,
+  Fn extends ActionFn<Target, Clc, Src>,
+  Clc extends ClockShape<any> = never,
+  Src extends SoureShape | Store<any> = never,
+>(
+  clock: Clc, 
+  config: {
+    source?: Src;
+    target: Target;
+    fn: Fn;
+  }
+): ActionResult<Clc, Src, Fn>
+export function createAction <
+  Target extends TargetShape | UnitTargetable<any>,
+  Fn extends ActionFn<Target, Clc, Src>,
+  Clc extends ClockShape<any> = never,
+  Src extends SoureShape | Store<any> = never,
+>(
+  configOrClock: Clc | {
+    clock?: Clc;
+    source?: Src;
+    target: Target;
+    fn: Fn;
+  },
+  maybeConfig?: {
+    source?: Src;
+    target: Target;
+    fn: Fn;
+  }
+): ActionResult<Clc, Src, Fn> {
+
+  let passedClock: Clc | undefined;
+  let passedSource: Src | undefined;
+  let passedTarget: Target;
+  let passedFn: Fn;
+
+  if (isClock(configOrClock)) {
+    if (!maybeConfig) {
+      throw new Error('Action config is not passed')
+    }
+    passedClock = configOrClock;
+    passedSource = maybeConfig.source;
+    passedTarget = maybeConfig.target;
+    passedFn = maybeConfig.fn;
+  } else {
+    passedClock = configOrClock.clock;
+    passedSource = configOrClock.source;
+    passedTarget = configOrClock.target;
+    passedFn = configOrClock.fn;
+  }
+
   const isSourceUnit = is.unit(passedSource);
 
-  const clock = config.clock ?? createEvent<any>();
-  const target: TargetShape = is.unit(config.target) ? { [getUnitTargetKey()]: config.target } : { ...config.target };
-  const source: SoureShape = isSourceUnit
+  const clock = passedClock ?? createEvent<any>();
+  const target: TargetShape = is.unit(passedTarget) ? { [getUnitTargetKey()]: passedTarget } : { ...passedTarget };
+  const source: SoureShape = is.unit(passedSource)
     ? { [getUnitSourceKey()]: passedSource }
     : removeDollarPrefix({ ...passedSource });
 
@@ -140,17 +199,17 @@ export const createAction = <
         return setter;
       };
 
-      const fnTarget = is.unit(config.target)
-        ? createSetter(getUnitTargetKey(), config.target)
+      const fnTarget = is.unit(passedTarget)
+        ? createSetter(getUnitTargetKey(), passedTarget)
         : Object.fromEntries(
-            Object.entries(config.target).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
+            Object.entries(passedTarget).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
           );
 
       if (passedSource) {
         const fnSource = isSourceUnit ? source[getUnitSourceKey()] : source;
-        config.fn(fnTarget as FnTarget, fnSource, clock);
+        passedFn(fnTarget as any, fnSource, clock);
       } else {
-        config.fn(fnTarget as FnTarget, clock);
+        passedFn(fnTarget as any, clock);
       }
 
       isFnEnded = true;
@@ -160,7 +219,7 @@ export const createAction = <
     target: spread(target),
   });
 
-  if (config.clock) {
+  if (passedClock) {
     // @ts-expect-error
     return;
   }
@@ -173,3 +232,8 @@ const removeDollarPrefix = (sourceShape: SoureShape): SoureShape => {
     Object.entries(sourceShape).map(([key, store]) => [key.startsWith('$') ? key.substring(1) : key, store]),
   );
 };
+
+const isClock = (maybeClock: unknown): maybeClock is ClockShape<any> => (
+  is.unit(maybeClock) ||
+  Array.isArray(maybeClock) && maybeClock.every(is.unit)
+);

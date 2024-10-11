@@ -342,36 +342,67 @@ describe('createAction', () => {
     expect(fn).toHaveBeenCalledOnce();
     expect(fn.mock.calls[0]?.[1]).toEqual(clockPayload);
   });
-  it('if the clock is passed to the config, it calls the fn and pass its payload to fn', async () => {
-    const scope = fork();
-    const storeClock = createStore('');
-    const eventClock = createEvent<string>();
-    const fxClock = createEffect<string, void>(() => {});
-    const fn = vitest.fn((_: any, clock: string) => {});
-    createAction({
-      clock: [storeClock, eventClock, fxClock],
-      target: someTarget,
-      fn,
+  describe('external clock', () => {
+    it('if the clock is passed to the config, it calls the fn and pass its payload to fn', async () => {
+      const scope = fork();
+      const storeClock = createStore('');
+      const eventClock = createEvent<string>();
+      const fxClock = createEffect<string, void>(() => {});
+      const fn = vitest.fn((_: any, clock: string) => {});
+      createAction({
+        clock: [storeClock, eventClock, fxClock],
+        target: someTarget,
+        fn,
+      });
+  
+      await allSettled(storeClock, {
+        scope,
+        params: 'foo',
+      });
+      await allSettled(eventClock, {
+        scope,
+        params: 'bar',
+      });
+      await allSettled(fxClock, {
+        scope,
+        params: 'baz',
+      });
+  
+      expect(fn).toHaveBeenCalledTimes(3);
+      expect(fn.mock.calls[0]?.[1]).toEqual('foo');
+      expect(fn.mock.calls[1]?.[1]).toEqual('bar');
+      expect(fn.mock.calls[2]?.[1]).toEqual('baz');
     });
-
-    await allSettled(storeClock, {
-      scope,
-      params: 'foo',
+    it('if the clock is passed as first arg, it calls the fn and pass its payload to fn', async () => {
+      const scope = fork();
+      const storeClock = createStore('');
+      const eventClock = createEvent<string>();
+      const fxClock = createEffect<string, void>(() => {});
+      const fn = vitest.fn((_: any, clock: string) => {});
+      createAction([storeClock, eventClock, fxClock], {
+        target: someTarget,
+        fn,
+      });
+  
+      await allSettled(storeClock, {
+        scope,
+        params: 'foo',
+      });
+      await allSettled(eventClock, {
+        scope,
+        params: 'bar',
+      });
+      await allSettled(fxClock, {
+        scope,
+        params: 'baz',
+      });
+  
+      expect(fn).toHaveBeenCalledTimes(3);
+      expect(fn.mock.calls[0]?.[1]).toEqual('foo');
+      expect(fn.mock.calls[1]?.[1]).toEqual('bar');
+      expect(fn.mock.calls[2]?.[1]).toEqual('baz');
     });
-    await allSettled(eventClock, {
-      scope,
-      params: 'bar',
-    });
-    await allSettled(fxClock, {
-      scope,
-      params: 'baz',
-    });
-
-    expect(fn).toHaveBeenCalledTimes(3);
-    expect(fn.mock.calls[0]?.[1]).toEqual('foo');
-    expect(fn.mock.calls[1]?.[1]).toEqual('bar');
-    expect(fn.mock.calls[2]?.[1]).toEqual('baz');
-  });
+  })
   it('pass clock and source to fn', async () => {
     const scope = fork();
     const fn = vitest.fn((_: any, source: string, clock: string) => {});
