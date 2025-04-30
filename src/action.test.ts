@@ -194,6 +194,31 @@ describe('createAction', () => {
 
     expect(scope.getState($store)).toEqual(expectedState);
   });
+  it('reducer fn does not apply for events and effects', async () => {
+    const scope = fork();
+    const event = createEvent<() => null>();
+    const fx = createEffect<() => null, void>();
+    const fn = () => null;
+    const eventSpy = createSpy({ scope, unit: event });
+    const fxSpy = createSpy({ scope, unit: fx });
+    const action = createAction({
+      target: {
+        event,
+        fx
+      },
+      fn: (target) => {
+        target.event(fn)
+        target.fx(fn);
+      },
+    });
+
+    await allSettled(action, { scope });
+
+    expect(eventSpy).toHaveBeenCalledOnce();
+    expect(eventSpy).toHaveBeenCalledWith(fn);
+    expect(fxSpy).toHaveBeenCalledOnce();
+    expect(fxSpy).toHaveBeenCalledWith(fn);
+  })
   it('store reducer return new actual value', async () => {
     const scope = fork();
     let reducerResult: number | undefined;
@@ -327,7 +352,7 @@ describe('createAction', () => {
   });
   it('if clock is not passed to the config, return clock and pass its payload to fn', async () => {
     const scope = fork();
-    const fn = vitest.fn((_: any, clock: string) => {});
+    const fn = vitest.fn((_: any, clock: string) => { });
     const clockPayload = 'foo';
     const clock = createAction({
       target: someTarget,
@@ -347,14 +372,14 @@ describe('createAction', () => {
       const scope = fork();
       const storeClock = createStore('');
       const eventClock = createEvent<string>();
-      const fxClock = createEffect<string, void>(() => {});
-      const fn = vitest.fn((_: any, clock: string) => {});
+      const fxClock = createEffect<string, void>(() => { });
+      const fn = vitest.fn((_: any, clock: string) => { });
       createAction({
         clock: [storeClock, eventClock, fxClock],
         target: someTarget,
         fn,
       });
-  
+
       await allSettled(storeClock, {
         scope,
         params: 'foo',
@@ -367,7 +392,7 @@ describe('createAction', () => {
         scope,
         params: 'baz',
       });
-  
+
       expect(fn).toHaveBeenCalledTimes(3);
       expect(fn.mock.calls[0]?.[1]).toEqual('foo');
       expect(fn.mock.calls[1]?.[1]).toEqual('bar');
@@ -377,13 +402,13 @@ describe('createAction', () => {
       const scope = fork();
       const storeClock = createStore('');
       const eventClock = createEvent<string>();
-      const fxClock = createEffect<string, void>(() => {});
-      const fn = vitest.fn((_: any, clock: string) => {});
+      const fxClock = createEffect<string, void>(() => { });
+      const fn = vitest.fn((_: any, clock: string) => { });
       createAction([storeClock, eventClock, fxClock], {
         target: someTarget,
         fn,
       });
-  
+
       await allSettled(storeClock, {
         scope,
         params: 'foo',
@@ -396,7 +421,7 @@ describe('createAction', () => {
         scope,
         params: 'baz',
       });
-  
+
       expect(fn).toHaveBeenCalledTimes(3);
       expect(fn.mock.calls[0]?.[1]).toEqual('foo');
       expect(fn.mock.calls[1]?.[1]).toEqual('bar');
@@ -405,7 +430,7 @@ describe('createAction', () => {
   })
   it('pass clock and source to fn', async () => {
     const scope = fork();
-    const fn = vitest.fn((_: any, source: string, clock: string) => {});
+    const fn = vitest.fn((_: any, source: string, clock: string) => { });
     const clockPayload = 'foo';
     const sourceValue = 'bar';
     const source = createStore(sourceValue);

@@ -23,19 +23,19 @@ type ClockShape<T> = Unit<T> | Unit<T>[];
 type GetClockValue<Clc extends ClockShape<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
 type GetSourceValue<Src extends Store<any> | SoureShape> =
   Src extends Store<infer Value>
-    ? Value
-    : { [K in RemoveDollarPrefix<keyof Src & string>]: UnitValue<Src[keyof Src & IsNever<K & keyof Src, `$${K}`, K>]> };
+  ? Value
+  : { [K in RemoveDollarPrefix<keyof Src & string>]: UnitValue<Src[keyof Src & IsNever<K & keyof Src, `$${K}`, K>]> };
 
 type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
   Target extends Record<string, UnitTargetable<any>>
-    ? { [K in keyof Target]: CreateCallableTargets<Target[K]> }
-    : Target extends UnitTargetable<any>
-      ? Target extends StoreWritable<any>
-        ? ((valueOrFn: UnitValue<Target> | ((value: UnitValue<Target>) => UnitValue<Target>)) => UnitValue<Target>) & {
-            reinit: () => void;
-          }
-        : (value: UnitValue<Target>) => UnitValue<Target>
-      : never;
+  ? { [K in keyof Target]: CreateCallableTargets<Target[K]> }
+  : Target extends UnitTargetable<any>
+  ? Target extends StoreWritable<any>
+  ? ((valueOrFn: UnitValue<Target> | ((value: UnitValue<Target>) => UnitValue<Target>)) => UnitValue<Target>) & {
+    reinit: () => void;
+  }
+  : (value: UnitValue<Target>) => UnitValue<Target>
+  : never;
 
 type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
   Clc,
@@ -44,7 +44,7 @@ type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
 >;
 
 type ActionResult<Clc, Src, Fn extends (...args: any[]) => any> = IsNever<
-Clc,
+  Clc,
   EventCallable<
     IsNever<
       Src,
@@ -53,22 +53,22 @@ Clc,
     >
   >,
   void
-  >;
+>;
 
 type ActionFn<
-    Target extends TargetShape | UnitTargetable<any>,
-    Clc extends ClockShape<any> = never,
-    Src extends SoureShape | Store<any> = never,
-    FnTarget = CreateCallableTargets<Target>,
-    FnClock = IsNever<Clc, any, GetClockValue<Clc>>,
+  Target extends TargetShape | UnitTargetable<any>,
+  Clc extends ClockShape<any> = never,
+  Src extends SoureShape | Store<any> = never,
+  FnTarget = CreateCallableTargets<Target>,
+  FnClock = IsNever<Clc, any, GetClockValue<Clc>>,
 > = IsNever<
-Src,
-(target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
-(
-  target: FnTarget,
-  source: GetSourceValue<Src>,
-  ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
-) => void
+  Src,
+  (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
+  (
+    target: FnTarget,
+    source: GetSourceValue<Src>,
+    ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
+  ) => void
 >
 
 const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
@@ -81,7 +81,7 @@ export const multiplyUnitCallErrorMessage = (unitName: string) =>
 export const asyncUnitChangeErrorMessage = (unitName: string) =>
   `effector-action Warning. Unit: "${unitName}". Async unit changes are not allowed. All async changes will not be applied`;
 
-export function createAction <
+export function createAction<
   Target extends TargetShape | UnitTargetable<any>,
   Fn extends ActionFn<Target, Clc, Src>,
   Clc extends ClockShape<any> = never,
@@ -92,20 +92,20 @@ export function createAction <
   target: Target;
   fn: Fn;
 }): ActionResult<Clc, Src, Fn>;
-export function createAction <
+export function createAction<
   Target extends TargetShape | UnitTargetable<any>,
   Fn extends ActionFn<Target, Clc, Src>,
   Clc extends ClockShape<any> = never,
   Src extends SoureShape | Store<any> = never,
 >(
-  clock: Clc, 
+  clock: Clc,
   config: {
     source?: Src;
     target: Target;
     fn: Fn;
   }
 ): ActionResult<Clc, Src, Fn>
-export function createAction <
+export function createAction<
   Target extends TargetShape | UnitTargetable<any>,
   Fn extends ActionFn<Target, Clc, Src>,
   Clc extends ClockShape<any> = never,
@@ -176,7 +176,7 @@ export function createAction <
           }
 
           const value =
-            typeof valueOrFunc === 'function' ? valueOrFunc(source[getStoreForPrevValueKey(unitName)]) : valueOrFunc;
+            (is.store(unit) && typeof valueOrFunc === 'function') ? valueOrFunc(source[getStoreForPrevValueKey(unitName)]) : valueOrFunc;
 
           targetsToChange[unitName] = value;
 
@@ -202,8 +202,8 @@ export function createAction <
       const fnTarget = is.unit(passedTarget)
         ? createSetter(getUnitTargetKey(), passedTarget)
         : Object.fromEntries(
-            Object.entries(passedTarget).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
-          );
+          Object.entries(passedTarget).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
+        );
 
       if (passedSource) {
         const fnSource = isSourceUnit ? source[getUnitSourceKey()] : source;
