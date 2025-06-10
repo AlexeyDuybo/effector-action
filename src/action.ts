@@ -4,7 +4,6 @@ import {
   EventCallable,
   Unit,
   UnitValue,
-  GetTupleWithoutAny,
   createEvent,
   StoreWritable,
   sample,
@@ -20,11 +19,12 @@ type TargetShape = Record<string, UnitTargetable<any>>;
 type SoureShape = Record<string, Store<any>>;
 type ClockShape<T> = Unit<T> | Unit<T>[];
 
-type GetClockValue<Clc extends ClockShape<any>> = [Clc] extends [Unit<any>] ? UnitValue<Clc> : GetTupleWithoutAny<Clc>;
 type GetSourceValue<Src extends Store<any> | SoureShape> =
   Src extends Store<infer Value>
   ? Value
   : { [K in RemoveDollarPrefix<keyof Src & string>]: UnitValue<Src[keyof Src & IsNever<K & keyof Src, `$${K}`, K>]> };
+
+type GetClockValue<Clc extends ClockShape<any>> = Clc extends ClockShape<infer Val> ? Val : never
 
 type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
   Target extends Record<string, UnitTargetable<any>>
@@ -36,40 +36,6 @@ type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
   }
   : (value: UnitValue<Target>) => UnitValue<Target>
   : never;
-
-type ShowClockParameter<Clc extends ClockShape<any>, Then, Else> = IsNever<
-  Clc,
-  Then,
-  Clc extends ClockShape<void> ? Else : Then
->;
-
-type ActionResult<Clc, Src, Fn extends (...args: any[]) => any> = IsNever<
-  Clc,
-  EventCallable<
-    IsNever<
-      Src,
-      Parameters<Fn> extends [any, infer Clock] ? Clock : void,
-      Parameters<Fn> extends [any, any, infer Clock] ? Clock : void
-    >
-  >,
-  void
->;
-
-type ActionFn<
-  Target extends TargetShape | UnitTargetable<any>,
-  Clc extends ClockShape<any> = never,
-  Src extends SoureShape | Store<any> = never,
-  FnTarget = CreateCallableTargets<Target>,
-  FnClock = IsNever<Clc, any, GetClockValue<Clc>>,
-> = IsNever<
-  Src,
-  (target: FnTarget, ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>) => void,
-  (
-    target: FnTarget,
-    source: GetSourceValue<Src>,
-    ...clockOrNothing: ShowClockParameter<Clc, [clock: FnClock], []>
-  ) => void
->
 
 const getResetKey = (storeName: string) => `__${storeName}.reinit__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
@@ -83,51 +49,108 @@ export const asyncUnitChangeErrorMessage = (unitName: string) =>
 
 export function createAction<
   Target extends TargetShape | UnitTargetable<any>,
-  Fn extends ActionFn<Target, Clc, Src>,
-  Clc extends ClockShape<any> = never,
-  Src extends SoureShape | Store<any> = never,
->(config: {
-  clock?: Clc;
-  source?: Src;
-  target: Target;
-  fn: Fn;
-}): ActionResult<Clc, Src, Fn>;
+  Src extends SoureShape | Store<any>,
+  Clc extends ClockShape<any>,
+>(
+  config: {
+    clock: Clc,
+    source: Src,
+    target: Target,
+    fn: (target: CreateCallableTargets<Target>, source: GetSourceValue<Src>, clock: GetClockValue<Clc>) => void
+  }
+): void
+
 export function createAction<
   Target extends TargetShape | UnitTargetable<any>,
-  Fn extends ActionFn<Target, Clc, Src>,
-  Clc extends ClockShape<any> = never,
-  Src extends SoureShape | Store<any> = never,
+  Clc extends ClockShape<any>,
+>(
+  config: {
+    clock: Clc,
+    target: Target,
+    fn: (target: CreateCallableTargets<Target>, clock: GetClockValue<Clc>) => void
+  }
+): void
+
+export function createAction<
+  Target extends TargetShape | UnitTargetable<any>,
+  Src extends SoureShape | Store<any>,
+  ClockValue = void,
+>(
+  config: {
+    source: Src,
+    target: Target,
+    fn: (target: CreateCallableTargets<Target>, source: GetSourceValue<Src>, clock: ClockValue) => void
+  }
+): EventCallable<ClockValue>
+
+export function createAction<
+  Target extends TargetShape | UnitTargetable<any>,
+  ClockValue = void,
+>(
+  config: {
+    target: Target,
+    fn: (target: CreateCallableTargets<Target>, clock: ClockValue) => void
+  }
+): EventCallable<ClockValue>
+
+export function createAction<
+  Target extends TargetShape | UnitTargetable<any>,
+  Src extends SoureShape | Store<any>,
+  Clc extends ClockShape<any>,
 >(
   clock: Clc,
   config: {
-    source?: Src;
-    target: Target;
-    fn: Fn;
+    source: Src,
+    target: Target,
+    fn: (target: CreateCallableTargets<Target>, source: GetSourceValue<Src>, clock: GetClockValue<Clc>) => void
   }
-): ActionResult<Clc, Src, Fn>
+): void
+
 export function createAction<
   Target extends TargetShape | UnitTargetable<any>,
-  Fn extends ActionFn<Target, Clc, Src>,
-  Clc extends ClockShape<any> = never,
-  Src extends SoureShape | Store<any> = never,
+  Clc extends ClockShape<any>,
 >(
-  configOrClock: Clc | {
-    clock?: Clc;
-    source?: Src;
-    target: Target;
-    fn: Fn;
+  clock: Clc,
+  config: {
+    target: Target,
+    fn: (target: CreateCallableTargets<Target>, clock: GetClockValue<Clc>) => void
+  }
+): void
+
+export function createAction<
+  Target extends TargetShape | UnitTargetable<any>,
+  Src extends SoureShape | Store<any>,
+  ClockValue = void,
+>(
+  configOrClock: ClockShape<ClockValue> | {
+    clock?: ClockShape<ClockValue>,
+    source?: Src,
+    target: Target,
+    fn: (
+      target: CreateCallableTargets<Target>,
+      sourceOrClock: GetSourceValue<Src> | ClockValue,
+      clock?: ClockValue
+    ) => void
   },
   maybeConfig?: {
-    source?: Src;
-    target: Target;
-    fn: Fn;
+    clock?: ClockShape<ClockValue>,
+    source?: Src,
+    target: Target,
+    fn: (
+      target: CreateCallableTargets<Target>,
+      sourceOrClock: GetSourceValue<Src> | ClockValue,
+      clock?: ClockValue
+    ) => void
   }
-): ActionResult<Clc, Src, Fn> {
-
-  let passedClock: Clc | undefined;
+): EventCallable<ClockValue> | void {
+  let passedClock: ClockShape<ClockValue> | undefined;
   let passedSource: Src | undefined;
   let passedTarget: Target;
-  let passedFn: Fn;
+  let passedFn: (target:
+    CreateCallableTargets<Target>,
+    sourceOrClock: GetSourceValue<Src> | ClockValue,
+    clock?: ClockValue
+  ) => void;
 
   if (isClock(configOrClock)) {
     if (!maybeConfig) {
@@ -220,7 +243,6 @@ export function createAction<
   });
 
   if (passedClock) {
-    // @ts-expect-error
     return;
   }
   // @ts-expect-error
