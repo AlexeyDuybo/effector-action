@@ -3,6 +3,7 @@
 This library provides api which allows changing the state of stores or calling events in an imperative style without breaking the static approach of the Effector. This should eliminate the problem when one synchronous task is split into several samples, or when the task turns into a mess of nested samples, conditions and splits.
 Therefore this abstraction can serve as a convenient replacement for one or more synchronous operators that are responsible for a single action.
 
+- [Library status](#library-status)
 - [Install](#install)
 - [Usage](#usage)
   - [Change units](#change-units)
@@ -14,6 +15,11 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Removing dollar prefix from store names in source](#removing-dollar-prefix-from-store-names-in-source)
 - [Limitation](#limitation)
 - [Under the hood](#under-the-hood)
+
+## Library status
+This library is production ready, and [officially recommended](https://effector.dev/en/guides/best-practices/#create-action) for use by Effector community.
+
+Also this library [will be moved to the Effector core API in the next major release](https://github.com/effector/effector/issues/1275), so start using it now.
 
 ## Install
 
