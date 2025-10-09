@@ -1,0 +1,170 @@
+import {
+  attach,
+  createEffect,
+  createEvent,
+  Effect,
+  is,
+  sample,
+  scopeBind,
+  Store,
+  StoreWritable,
+  Unit,
+  UnitTargetable,
+  UnitValue,
+} from 'effector';
+import type { SoureShape, GetSourceValue, TargetShape } from './types';
+import { getResetKey, getUnitSourceKey, multiplyUnitCallErrorMessage, removeDollarPrefix } from './shared';
+import { spread } from 'patronum';
+
+const promiseWithResolver = () => {
+  let resolve: () => void;
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve: resolve! };
+};
+
+type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
+  Target extends Record<string, UnitTargetable<any>>
+    ? { [K in keyof Target]: CreateCallableTargets<Target[K]> }
+    : Target extends UnitTargetable<any>
+      ? Target extends StoreWritable<any>
+        ? ((valueOrFn: UnitValue<Target>) => UnitValue<Target>) & {
+            reinit: () => void;
+          }
+        : (value: UnitValue<Target>) => UnitValue<Target>
+      : never;
+
+export function createAsyncAction<
+  Target extends TargetShape,
+  Src extends SoureShape | Store<any>,
+  ClockValue = void,
+  ActionResult = void,
+>(config: {
+  source: Src;
+  target: Target;
+  fn: (
+    target: CreateCallableTargets<Target>,
+    getSource: () => Promise<GetSourceValue<Src>>,
+    clock: ClockValue,
+  ) => ActionResult;
+}): Effect<ClockValue, Awaited<ActionResult>, unknown>;
+
+export function createAsyncAction<Target extends TargetShape, ClockValue = void, ActionResult = void>(config: {
+  target: Target;
+  fn: (target: CreateCallableTargets<Target>, clock: ClockValue) => ActionResult;
+}): Effect<ClockValue, Awaited<ActionResult>, unknown>;
+
+export function createAsyncAction<
+  Target extends TargetShape,
+  Src extends SoureShape | Store<any>,
+  ClockValue = void,
+  ActionResult = void,
+>(config: {
+  source?: Src;
+  target: Target;
+  fn: (
+    target: CreateCallableTargets<Target>,
+    sourceOrClock: (() => Promise<GetSourceValue<Src>>) | ClockValue,
+    clock?: ClockValue,
+  ) => ActionResult;
+}): Effect<ClockValue, Awaited<ActionResult>, unknown> {
+  const target: TargetShape = { ...config.target };
+  const source: SoureShape = is.unit(config.source)
+    ? { [getUnitSourceKey()]: config.source }
+    : removeDollarPrefix({ ...config.source });
+
+  Object.entries(target).forEach(([targetName, targetUnit]) => {
+    if (is.store(targetUnit)) {
+      target[getResetKey(targetName)] = targetUnit.reinit;
+    }
+  });
+
+  const setState = createEvent<Record<string, any>>();
+
+  let getSourceFx: Effect<false | Promise<void>, any>;
+  if (config.source) {
+    const getSourceValueFx = attach({
+      source,
+      effect: async (sourceValue) => {
+        return is.unit(config.source) ? sourceValue[getUnitSourceKey()] : sourceValue;
+      },
+    });
+    getSourceFx = createEffect(async (batchingStatus: false | Promise<void>) => {
+      if (batchingStatus) await batchingStatus;
+      return getSourceValueFx();
+    });
+  }
+
+  const fx = createEffect((clock: ClockValue) => {
+    let targetsToChange: Record<string, any> = {};
+    let batchingStatus: false | Promise<void> = false;
+
+    const boundSetState = scopeBind(setState, { safe: true });
+
+    const update = () => {
+      if (batchingStatus) return;
+      const batchingPromise = promiseWithResolver();
+      batchingStatus = batchingPromise.promise;
+      Promise.resolve().then(() => {
+        boundSetState(targetsToChange);
+        targetsToChange = {};
+        batchingPromise.resolve();
+        batchingStatus = false;
+      });
+    };
+
+    const createSetter = (unitName: string, unit: Unit<any>) => {
+      const setter = (value: unknown) => {
+        update();
+        if (unitName in targetsToChange) {
+          console.error(multiplyUnitCallErrorMessage(unitName));
+        }
+
+        targetsToChange[unitName] = value;
+
+        return value;
+      };
+
+      if (is.store(unit)) {
+        setter.reinit = () => {
+          update();
+          const resetKey = getResetKey(unitName);
+          if (resetKey in targetsToChange) {
+            console.error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
+          }
+          targetsToChange[resetKey] = undefined;
+        };
+      }
+
+      return setter;
+    };
+
+    const fnTarget = Object.fromEntries(
+      Object.entries(config.target).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
+    );
+
+    return new Promise<ActionResult>((resolve, reject) => {
+      try {
+        if (config.source && getSourceFx) {
+          resolve(config.fn(fnTarget as any, () => getSourceFx(batchingStatus), clock));
+        } else {
+          resolve(config.fn(fnTarget as any, clock));
+        }
+      } catch (e) {
+        reject(e);
+      }
+    }).catch((error) => {
+      console.error('[Error in Async Action]:', error);
+      throw error;
+    });
+  });
+
+  sample({
+    clock: setState,
+    target: spread(target),
+  });
+
+  // @ts-expect-error
+  return fx;
+}

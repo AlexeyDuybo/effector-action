@@ -17,6 +17,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
 - [Under the hood](#under-the-hood)
 
 ## Library status
+
 This library is production ready, and [officially recommended](https://effector.dev/en/guides/best-practices/#create-action) for use by Effector community.
 
 Also this library [will be moved to the Effector core API in the next major release](https://github.com/effector/effector/issues/1275), so start using it now.

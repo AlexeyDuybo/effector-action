@@ -1,6 +1,6 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import { createAction } from './action';
-import { createEffect, createEvent, createStore, EventCallable } from 'effector';
+import { createEffect, createEvent, createStore, EventCallable, UnitTargetable } from 'effector';
 
 describe('createAction/types', () => {
   it('target', () => {
@@ -88,7 +88,6 @@ describe('createAction/types', () => {
       },
     });
 
-
     createAction(createEvent<string>(), {
       // @ts-expect-error
       clock: createEvent<string>(),
@@ -164,50 +163,58 @@ describe('createAction/types', () => {
       },
     });
 
-    expectTypeOf(createAction({
-      clock: createEvent(),
-      target: {},
-      fn: (target) => { },
-    })).toBeVoid();
-    expectTypeOf(createAction(createEvent(), {
-      target: {},
-      fn: (target) => { },
-    })).toBeVoid();
-    expectTypeOf(createAction({
-      clock: createEvent(),
-      source: createStore(''),
-      target: {},
-      fn: (target) => { },
-    })).toBeVoid();
-    expectTypeOf(createAction(createEvent(), {
-      source: createStore(''),
-      target: {},
-      fn: (target) => { },
-    })).toBeVoid();
+    expectTypeOf(
+      createAction({
+        clock: createEvent(),
+        target: {},
+        fn: (target) => {},
+      }),
+    ).toBeVoid();
+    expectTypeOf(
+      createAction(createEvent(), {
+        target: {},
+        fn: (target) => {},
+      }),
+    ).toBeVoid();
+    expectTypeOf(
+      createAction({
+        clock: createEvent(),
+        source: createStore(''),
+        target: {},
+        fn: (target) => {},
+      }),
+    ).toBeVoid();
+    expectTypeOf(
+      createAction(createEvent(), {
+        source: createStore(''),
+        target: {},
+        fn: (target) => {},
+      }),
+    ).toBeVoid();
   });
 
   it('returned clock', () => {
     const clock1 = createAction({
       target: {},
-      fn: (_, clock: string) => { },
+      fn: (_, clock: string) => {},
     });
     expectTypeOf(clock1).toEqualTypeOf<EventCallable<string>>();
     const clock11 = createAction({
       source: createStore(1),
       target: {},
-      fn: (_, src, clock: string) => { },
+      fn: (_, src, clock: string) => {},
     });
     expectTypeOf(clock1).toEqualTypeOf<EventCallable<string>>();
     expectTypeOf(clock11).toEqualTypeOf<EventCallable<string>>();
 
     const clock2 = createAction({
       target: {},
-      fn: (_, clock: string | number | boolean) => { },
+      fn: (_, clock: string | number | boolean) => {},
     });
     const clock22 = createAction({
       source: createStore(1),
       target: {},
-      fn: (_, src, clock: string | number | boolean) => { },
+      fn: (_, src, clock: string | number | boolean) => {},
     });
     expectTypeOf(clock2).toEqualTypeOf<EventCallable<string | number | boolean>>();
     expectTypeOf(clock22).toEqualTypeOf<EventCallable<string | number | boolean>>();
@@ -230,28 +237,26 @@ describe('createAction/types', () => {
     expectTypeOf(clock3).toEqualTypeOf<EventCallable<void>>();
     expectTypeOf(clock33).toEqualTypeOf<EventCallable<void>>();
 
-
     const clock4 = createAction({
       target: {},
-      fn: (_) => { },
+      fn: (_) => {},
     });
     const clock44 = createAction({
       source: createStore(1),
       target: {},
-      fn: (_) => { },
+      fn: (_) => {},
     });
     expectTypeOf(clock4).toEqualTypeOf<EventCallable<void>>();
     expectTypeOf(clock44).toEqualTypeOf<EventCallable<void>>();
 
-
     const clock5 = createAction({
       source: createStore(''),
       target: {},
-      fn: (_, __, clock: string | number | null) => { },
+      fn: (_, __, clock: string | number | null) => {},
     });
     const clock55 = createAction({
       target: {},
-      fn: (_, clock: string | number | null) => { },
+      fn: (_, clock: string | number | null) => {},
     });
     expectTypeOf(clock5).toEqualTypeOf<EventCallable<string | number | null>>();
     expectTypeOf(clock55).toEqualTypeOf<EventCallable<string | number | null>>();
@@ -298,7 +303,7 @@ describe('createAction/types', () => {
   });
 
   it('can be passed as callback without manual clock type declaration', () => {
-    const factory = ({ }: { onSubmit: EventCallable<string | number> }) => null;
+    const factory = ({}: { onSubmit: UnitTargetable<string | number> }) => null;
 
     factory({
       onSubmit: createAction({
@@ -306,18 +311,17 @@ describe('createAction/types', () => {
         target: {},
         fn: (target, source, clock) => {
           expectTypeOf(clock).toEqualTypeOf<string | number>();
-        }
-      })
-    })
+        },
+      }),
+    });
 
     factory({
       onSubmit: createAction({
         target: {},
         fn: (target, clock) => {
           expectTypeOf(clock).toEqualTypeOf<string | number>();
-        }
-      })
-    })
-
-  })
+        },
+      }),
+    });
+  });
 });
