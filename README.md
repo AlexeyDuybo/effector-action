@@ -350,6 +350,8 @@ sample({
 
 Similar to createAction, but allows waiting for effects passed to target to complete. Returns an effect as a result.
 
+See live example: https://stackblitz.com/edit/react-ts-z9yaunuk?file=App.tsx
+
 ### Usage
 
 ```ts
