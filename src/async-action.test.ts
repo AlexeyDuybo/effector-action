@@ -1,15 +1,5 @@
 import { describe, it, expect, vitest } from 'vitest';
-import {
-  Scope,
-  Unit,
-  allSettled,
-  createEffect,
-  createEvent,
-  createStore,
-  createWatch,
-  fork,
-  sample,
-} from 'effector';
+import { Scope, Unit, allSettled, createEffect, createEvent, createStore, createWatch, fork, sample } from 'effector';
 import { createAsyncAction } from './async-action';
 import { multiplyUnitCallErrorMessage } from './shared';
 
@@ -409,7 +399,7 @@ describe('createAsyncAction', () => {
     it('async change units and returns value', async () => {
       const scope = fork();
       const $store = createStore(1);
-      const fx = createEffect((param: number) => new Promise<number>(res => setTimeout(() => res(param * 2))));
+      const fx = createEffect((param: number) => new Promise<number>((res) => setTimeout(() => res(param * 2))));
       const action = createAsyncAction({
         target: { fx, $store },
         fn: async (target) => {
@@ -427,19 +417,19 @@ describe('createAsyncAction', () => {
     it('get actual value after effect change it', async () => {
       const scope = fork();
       const $store = createStore(1);
-      const fx1 = createEffect((param: number) => new Promise<number>(res => setTimeout(() => res(param * 2))));
+      const fx1 = createEffect((param: number) => new Promise<number>((res) => setTimeout(() => res(param * 2))));
       const fx2 = createEffect((param: number) => Promise.resolve(param * 2));
 
       sample({
         clock: fx1.doneData,
         fn: (value) => value * 2,
-        target: $store 
-      })
+        target: $store,
+      });
       sample({
         clock: fx2.doneData,
         fn: (value) => value * 2,
-        target: $store 
-      })
+        target: $store,
+      });
       const action = createAsyncAction({
         source: $store,
         target: { fx1, fx2, $store },

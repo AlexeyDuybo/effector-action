@@ -20,7 +20,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Usage](#usage-1)
   - [Source](#source-1)
   - [Return value](#return-value)
-  - [Action paramaters](#action-paramaters)
+  - [Action paramaters](#action-parameters)
 - [Parameter type inference](#parameter-type-inference)
 
 ## Library status
@@ -350,7 +350,7 @@ sample({
 
 Similar to createAction, but allows waiting for effects passed to target to complete. Returns an effect as a result.
 
-### Usage 
+### Usage
 
 ```ts
 const $draftUserName = createStore('');
@@ -417,24 +417,24 @@ const $user = createStore<User | null>(null);
 const loadUserFx = createEffect<void, User>();
 
 sample({
-    clock: loadUserFx.doneData,
-    target: $user
+  clock: loadUserFx.doneData,
+  target: $user,
 });
 
 const updateUserNameFx = createAsyncAction({
-    source: $user,
-    target: {
-        loadUserFx
-    },
-    fn: async (target, getSource) => {
-        const user = await getSource(); // user === null
+  source: $user,
+  target: {
+    loadUserFx,
+  },
+  fn: async (target, getSource) => {
+    const user = await getSource(); // user === null
 
-        await target.loadUserFx();
+    await target.loadUserFx();
 
-        // get actual source value after loadUserFx.doneData
-        const updatedUser = await getSource(); // user === User
-    }
-})
+    // get actual source value after loadUserFx.doneData
+    const updatedUser = await getSource(); // user === User
+  },
+});
 ```
 
 ### Return value
@@ -443,23 +443,23 @@ Async action can return value like usual effect.
 
 ```ts
 const updateUserNameFx = createAsyncAction({
-    target: {
-        $someStore,
-        someEffectFx
-    },
-    fn: async (target, getSource) => {
-        const result = await target.someEffectFx(); // 10
-        target.$someStore(result); // change units
-        return result // return value
-    }
+  target: {
+    $someStore,
+    someEffectFx,
+  },
+  fn: async (target, getSource) => {
+    const result = await target.someEffectFx(); // 10
+    target.$someStore(result); // change units
+    return result; // return value
+  },
 });
 
 sample({
   clock: updateUserNameFx.doneData,
   fn: (result) => {
     // result = 10
-  }
-})
+  },
+});
 ```
 
 ### Action parameters
@@ -471,37 +471,36 @@ const onUserNameChangeFx = createAsyncAction({
   target: {},
   fn: (target, userName: string) => {
     // ...
-  }
-})
-``` 
+  },
+});
+```
 
 ## Parameter type inference
 
 The parameter type for Action and AsyncAction can be inferred from the function parameter types.
 
 ```ts
-const formModel = <FormSchema,>(params: { onSubmit: UnitTargetable<FormSchema> }) => {
-    // ...
+const formModel = <FormSchema>(params: { onSubmit: UnitTargetable<FormSchema> }) => {
+  // ...
 };
 
 const form1 = formModel<User>({
-    onSubmit: createAction({
-        target: {},
-        fn: (target, user) => {
-            // inferred
-            // user === User
-        }
-    })
-})
+  onSubmit: createAction({
+    target: {},
+    fn: (target, user) => {
+      // inferred
+      // user === User
+    },
+  }),
+});
 
 const form2 = formModel<User>({
-    onSubmit: createAsyncAction({
-        target: {},
-        fn: (target, user) => {
-            // inferred
-            // user === User
-        }
-    })
-})
+  onSubmit: createAsyncAction({
+    target: {},
+    fn: (target, user) => {
+      // inferred
+      // user === User
+    },
+  }),
+});
 ```
- 
