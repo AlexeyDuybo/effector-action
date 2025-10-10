@@ -32,7 +32,9 @@ type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
         ? ((valueOrFn: UnitValue<Target>) => UnitValue<Target>) & {
             reinit: () => void;
           }
-        : (value: UnitValue<Target>) => UnitValue<Target>
+        : Target extends Effect<infer EffectPayload, infer EffectResult>
+          ? (payload: EffectPayload) => Promise<EffectResult>
+          : (value: UnitValue<Target>) => UnitValue<Target>
       : never;
 
 export function createAsyncAction<
@@ -119,6 +121,11 @@ export function createAsyncAction<
         update();
         if (unitName in targetsToChange) {
           console.error(multiplyUnitCallErrorMessage(unitName));
+        }
+
+        // TDOO call effects via sample
+        if (is.effect(unit)) {
+          return unit(value);
         }
 
         targetsToChange[unitName] = value;

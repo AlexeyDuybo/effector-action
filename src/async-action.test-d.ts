@@ -14,7 +14,7 @@ describe('createAsyncAction/types', () => {
         expectTypeOf(target).toEqualTypeOf<{
           $store: ((valueOfFunc: string) => string) & { reinit: () => void };
           event: (payload: number) => number;
-          fx: (payload: null) => null;
+          fx: (payload: null) => Promise<boolean>;
         }>();
       },
     });

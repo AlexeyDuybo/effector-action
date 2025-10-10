@@ -8,6 +8,7 @@ import {
   createStore,
   createWatch,
   fork,
+  sample,
 } from 'effector';
 import { createAsyncAction } from './async-action';
 import { multiplyUnitCallErrorMessage } from './shared';
@@ -197,7 +198,7 @@ describe('createAsyncAction', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${storeName}.reinit`));
       expect(reinitSpy).toHaveBeenCalledOnce();
     });
-    it.each([createStore(''), createEvent<string>(), createEffect<string, null>(() => null)])(
+    it.each([createStore(''), createEvent<string>()])(
       'shows warning and apply last change if unit called more than 1 time',
       async (unit) => {
         const unitName = 'unit';
@@ -243,22 +244,23 @@ describe('createAsyncAction', () => {
     });
   });
   describe('async behaviour', () => {
+    const waitFx = createEffect(() => wait());
     it('async change units and returns value', async () => {
       const scope = fork();
       const $store = createStore(0);
       const $store2 = createStore(0);
       const fxResult = 100;
       const action = createAsyncAction({
-        target: { $store, $store2 },
+        target: { waitFx, $store, $store2 },
         fn: async (target) => {
           target.$store(1);
 
-          await wait();
+          await target.waitFx();
 
           target.$store(2);
           target.$store2(1);
 
-          await wait();
+          await target.waitFx();
 
           target.$store.reinit();
 
@@ -274,10 +276,12 @@ describe('createAsyncAction', () => {
 
       expect(scope.getState($store2)).toEqual(0);
       await wait();
+      await wait();
       // async changes 2
       expect(scope.getState($store)).toEqual(2);
       expect(scope.getState($store2)).toEqual(1);
 
+      await wait();
       await wait();
       // async changes 3
       expect(scope.getState($store)).toEqual(0);
@@ -290,11 +294,11 @@ describe('createAsyncAction', () => {
       const sourceSpy = vitest.fn();
       const action = createAsyncAction({
         source: $store,
-        target: { $store },
+        target: { $store, waitFx },
         fn: async (target, getSourceFx) => {
           sourceSpy(await getSourceFx());
 
-          await wait();
+          await target.waitFx();
 
           target.$store(1);
 
@@ -324,11 +328,11 @@ describe('createAsyncAction', () => {
       const sourceSpy = vitest.fn();
       const action = createAsyncAction({
         source: { $store },
-        target: { $store },
+        target: { $store, waitFx },
         fn: async (target, getSourceFx) => {
           sourceSpy((await getSourceFx()).store);
 
-          await wait();
+          await target.waitFx();
 
           target.$store(1);
 
@@ -352,7 +356,7 @@ describe('createAsyncAction', () => {
       expect(sourceSpy).nthCalledWith(3, 2);
       expect(sourceSpy).nthCalledWith(4, 3);
     });
-    it.each([createStore(''), createEvent<string>(), createEffect<string, null>(() => null)])(
+    it.each([createStore(''), createEvent<string>()])(
       'shows warning and apply last change if unit called more than 1 time',
       async (unit) => {
         const unitName = 'unit';
@@ -401,6 +405,58 @@ describe('createAsyncAction', () => {
       expect(await allSettled(action, { scope })).toEqual({ status: 'fail', value: new Error('error') });
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
       expect(consoleErrorSpy).toHaveBeenCalledWith('[Error in Async Action]:', new Error('error'));
+    });
+    it('async change units and returns value', async () => {
+      const scope = fork();
+      const $store = createStore(1);
+      const fx = createEffect((param: number) => new Promise<number>(res => setTimeout(() => res(param * 2))));
+      const action = createAsyncAction({
+        target: { fx, $store },
+        fn: async (target) => {
+          const result = await target.fx(100);
+
+          target.$store(result);
+
+          return result;
+        },
+      });
+
+      expect(await allSettled(action, { scope })).toEqual({ status: 'done', value: 200 });
+      expect(scope.getState($store)).toEqual(200);
+    });
+    it('get actual value after effect change it', async () => {
+      const scope = fork();
+      const $store = createStore(1);
+      const fx1 = createEffect((param: number) => new Promise<number>(res => setTimeout(() => res(param * 2))));
+      const fx2 = createEffect((param: number) => Promise.resolve(param * 2));
+
+      sample({
+        clock: fx1.doneData,
+        fn: (value) => value * 2,
+        target: $store 
+      })
+      sample({
+        clock: fx2.doneData,
+        fn: (value) => value * 2,
+        target: $store 
+      })
+      const action = createAsyncAction({
+        source: $store,
+        target: { fx1, fx2, $store },
+        fn: async (target, getSource) => {
+          const store1 = await getSource();
+          await target.fx1(store1);
+          const store2 = await getSource();
+
+          await target.fx2(store2);
+          const store3 = await getSource();
+
+          return store3;
+        },
+      });
+
+      expect(await allSettled(action, { scope })).toEqual({ status: 'done', value: 16 });
+      expect(scope.getState($store)).toEqual(16);
     });
   });
 });
