@@ -5,22 +5,29 @@ Therefore this abstraction can serve as a convenient replacement for one or more
 
 - [Library status](#library-status)
 - [Install](#install)
-- [Usage](#usage)
-  - [Change units](#change-units)
-  - [Сhange store using reducer func](#сhange-store-using-reducer-func)
-  - [Reset store](#reset-store)
-  - [Clock](#clock)
-  - [Alternative api for external clock usage (Recommended)](#alternative-api-for-external-clock-usage)
-  - [Source](#source)
-  - [Removing dollar prefix from store names in source](#removing-dollar-prefix-from-store-names-in-source)
-- [Limitation](#limitation)
-- [Under the hood](#under-the-hood)
+- [createAction](#createaction)
+  - [Usage](#usage)
+    - [Change units](#change-units)
+    - [Сhange store using reducer func](#сhange-store-using-reducer-func)
+    - [Reset store](#reset-store)
+    - [Clock](#clock)
+    - [Alternative api for external clock usage (Recommended)](#alternative-api-for-external-clock-usage-recommended)
+    - [Source](#source)
+    - [Removing dollar prefix from store names in source](#removing-dollar-prefix-from-store-names-in-source)
+  - [Limitation](#limitation)
+  - [Under the hood](#under-the-hood)
+- [createAsyncAction](#createasyncaction)
+  - [Usage](#usage-1)
+  - [Source](#source-1)
+  - [Return value](#return-value)
+  - [Action paramaters](#action-paramaters)
+- [Parameter type inference](#parameter-type-inference)
 
 ## Library status
 
-This library is production ready, and [officially recommended](https://effector.dev/en/guides/best-practices/#create-action) for use by Effector community.
+This library (createAction) is production ready, and [officially recommended](https://effector.dev/en/guides/best-practices/#create-action) for use by Effector community.
 
-Also this library [will be moved to the Effector core API in the next major release](https://github.com/effector/effector/issues/1275), so start using it now.
+Also `createAction` [will be moved to the Effector core API in the next major release](https://github.com/effector/effector/issues/1275), so start using it now.
 
 ## Install
 
@@ -30,9 +37,11 @@ npm i --save effector-action
 
 This requires effector >=23 and patronum >=2.1.0.
 
-## Usage
+## createAction
 
-### Change units
+### Usage
+
+#### Change units
 
 All units in `target` are available for change in `fn`. To change the value of a store or trigger an event simply call it and pass the appropriate value.
 
@@ -101,7 +110,7 @@ const changeValues = createAction({
 changeValues();
 ```
 
-### Сhange store using reducer func
+#### Сhange store using reducer func
 
 You can change store values ​​using the reducer function and based on the current state of the store.
 
@@ -133,7 +142,7 @@ const changeValues = createAction({
 });
 ```
 
-### Clock
+#### Clock
 
 To run `fn` you need to trigger the clock.
 Clock can be specified in the clock field
@@ -187,7 +196,7 @@ const clock = createAction({
 // clock = Event<string>
 ```
 
-### Alternative api for external clock usage
+#### Alternative api for external clock usage
 
 You can specify external clock in the first argument.
 
@@ -244,9 +253,9 @@ const clock = createAction({
 })
 ```
 
-## Limitation
+### Limitation
 
-### Functions that change units should be called no more than once.
+#### Functions that change units should be called no more than once.
 
 If it was called multiple times, only the last call will be counted.
 
@@ -266,7 +275,7 @@ changeValue();
 $store; // state = bar
 ```
 
-### Only sync function allowed in fn
+#### Only sync function allowed in fn
 
 ```ts
 const changeValues = createAction({
@@ -281,7 +290,7 @@ const changeValues = createAction({
 });
 ```
 
-## Under the hood
+### Under the hood
 
 Under the hood it's an abstraction over sample and **_[patronum/spread](https://patronum.effector.dev/methods/spread/)_**.
 
@@ -336,3 +345,163 @@ sample({
   }),
 });
 ```
+
+## createAsyncAction
+
+Similar to createAction, but allows waiting for effects passed to target to complete. Returns an effect as a result.
+
+### Usage 
+
+```ts
+const $draftUserName = createStore('');
+const $user = createStore<User | null>(null);
+const updateUserFx = createEffect<{ id: string } & Partial<User>, User>();
+
+const updateUserNameFx = createAsyncAction({
+    source: {
+        $draftUserName,
+        $user
+    },
+    target: {
+        $user,
+        showNotificationFx,
+        updateUserFx,
+    },
+    fn: async (target, getSource) => {
+        const { draftUserName, user } = await getSource();
+
+        if (!user) return;
+
+        try {
+            const updatedUser = await target.updateUserFx({
+                id: user.id,
+                name: draftUserName,
+            });
+            target.$user(updatedUser);
+            target.showNotificationFx({
+                type: 'info',
+                text: 'User updated',
+            });
+        } catch {
+            target.showNotificationFx({
+                type: 'warning',
+                text: 'User update failed',
+            });
+        }
+    }
+});
+
+const $isUserUpdating = updateUserName.pending;
+
+
+  // react
+  const onUpdateUserName = useUnit(updateUserName);
+  const isUserUpdating = useUnit($isUserUpdating);
+
+  // ...
+
+  <Button
+    onClick={onUpdateUserName}
+    loading={isUserUpdating}
+  >
+    Submit
+  </Button>
+```
+
+### Source
+
+To get the source value, use the asynchronous getSource function. It allows obtaining up-to-date source values after asynchronous effect calls.
+
+```ts
+const $user = createStore<User | null>(null);
+const loadUserFx = createEffect<void, User>();
+
+sample({
+    clock: loadUserFx.doneData,
+    target: $user
+});
+
+const updateUserNameFx = createAsyncAction({
+    source: $user,
+    target: {
+        loadUserFx
+    },
+    fn: async (target, getSource) => {
+        const user = await getSource(); // user === null
+
+        await target.loadUserFx();
+
+        // get actual source value after loadUserFx.doneData
+        const updatedUser = await getSource(); // user === User
+    }
+})
+```
+
+### Return value
+
+Async action can return value like usual effect.
+
+```ts
+const updateUserNameFx = createAsyncAction({
+    target: {
+        $someStore,
+        someEffectFx
+    },
+    fn: async (target, getSource) => {
+        const result = await target.someEffectFx(); // 10
+        target.$someStore(result); // change units
+        return result // return value
+    }
+});
+
+sample({
+  clock: updateUserNameFx.doneData,
+  fn: (result) => {
+    // result = 10
+  }
+})
+```
+
+### Action parameters
+
+Like in a regular action, you can pass parameters.
+
+```ts
+const onUserNameChangeFx = createAsyncAction({
+  target: {},
+  fn: (target, userName: string) => {
+    // ...
+  }
+})
+``` 
+
+## Parameter type inference
+
+The parameter type for Action and AsyncAction can be inferred from the function parameter types.
+
+```ts
+const formModel = <FormSchema,>(params: { onSubmit: UnitTargetable<FormSchema> }) => {
+    // ...
+};
+
+const form1 = formModel<User>({
+    onSubmit: createAction({
+        target: {},
+        fn: (target, user) => {
+            // inferred
+            // user === User
+        }
+    })
+})
+
+const form2 = formModel<User>({
+    onSubmit: createAsyncAction({
+        target: {},
+        fn: (target, user) => {
+            // inferred
+            // user === User
+        }
+    })
+})
+```
+ 
