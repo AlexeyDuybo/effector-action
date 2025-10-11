@@ -124,11 +124,10 @@ export function createAsyncAction<
     const createSetter = (unitName: string, unit: Unit<any>) => {
       const setter = (value: unknown) => {
         if (unitsToChangePerTick.has(unitName)) {
-          throw new Error(multiplyUnitCallErrorMessage(unitName))
+          throw new Error(multiplyUnitCallErrorMessage(unitName));
         }
         unitsToChangePerTick.add(unitName);
         update();
-
 
         // TDOO call effects via sample
         if (is.effect(unit)) {
@@ -144,7 +143,7 @@ export function createAsyncAction<
         setter.reinit = () => {
           const resetKey = getResetKey(unitName);
           if (unitsToChangePerTick.has(resetKey)) {
-            throw new Error(multiplyUnitCallErrorMessage(unitName + '.reinit'))
+            throw new Error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
           }
           unitsToChangePerTick.add(resetKey);
           update();
@@ -159,18 +158,18 @@ export function createAsyncAction<
       Object.entries(config.target).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
     );
 
-    async function asyncActionWrapper () {
+    async function asyncActionWrapper() {
       try {
         if (config.source && getSourceFx) {
-          return await (config.fn(fnTarget as any, () => getSourceFx(batchingStatus), clock));
+          return await config.fn(fnTarget as any, () => getSourceFx(batchingStatus), clock);
         } else {
-          return await (config.fn(fnTarget as any, clock));
+          return await config.fn(fnTarget as any, clock);
         }
       } catch (e) {
         console.error(e);
         throw e;
       }
-    };
+    }
 
     return asyncActionWrapper();
   });

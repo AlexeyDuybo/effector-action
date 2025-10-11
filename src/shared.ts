@@ -8,4 +8,3 @@ export const removeDollarPrefix = (sourceShape: SoureShape): SoureShape => {
     Object.entries(sourceShape).map(([key, store]) => [key.startsWith('$') ? key.substring(1) : key, store]),
   );
 };
-

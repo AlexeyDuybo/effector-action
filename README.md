@@ -23,7 +23,6 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Action paramaters](#action-parameters)
   - [Limitation](#async-action-limitation)
   - [Error logging](#error-logging)
-  
 - [Parameter type inference](#parameter-type-inference)
 
 ## Library status
@@ -488,6 +487,7 @@ You can call the same function multiple times if they are called in different mi
 Calling the same function in a single tick will result in an error.
 
 WRONG. multiple calls in single tick
+
 ```ts
 fn: (target) => {
   target.$store('foo');
@@ -496,6 +496,7 @@ fn: (target) => {
 ```
 
 WRONG. multiple calls in single tick
+
 ```ts
 async fn: (target) => {
   const result = await Promise([
@@ -506,6 +507,7 @@ async fn: (target) => {
 ```
 
 OK. multiple calls in different ticks
+
 ```ts
 fn: (target) => {
   target.$store('foo');
@@ -519,7 +521,6 @@ fn: (target) => {
 Unlike effects, when an error occurs in Async Action, it will be logged using `console.error`. The location where the error occurred specifically in Async Action can be traced through the stack trace. It will be located near the asyncActionWrapper function.
 
 <img src="./docs/img/error.png" alt="stack trace" width="400"/>
-
 
 ## Parameter type inference
 

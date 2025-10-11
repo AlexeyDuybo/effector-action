@@ -308,10 +308,10 @@ describe('createAsyncAction', () => {
           try {
             target[storeName].reinit();
           } catch (e) {
-            track(e);     
-            throw e;       
+            track(e);
+            throw e;
           }
-        }
+        },
       });
       const reinitSpy = createSpy({
         scope,
@@ -333,7 +333,7 @@ describe('createAsyncAction', () => {
         const consoleErrorSpy = vitest.spyOn(console, 'error');
         const scope = fork();
         const track = vitest.fn();
-        
+
         const action = createAsyncAction({
           target: {
             [unitName]: unit,
@@ -343,7 +343,7 @@ describe('createAsyncAction', () => {
             try {
               target.unit('bar');
             } catch (e) {
-              track(e);     
+              track(e);
               throw e;
             }
           },
