@@ -10,13 +10,15 @@ import {
   UnitValue,
 } from 'effector';
 import { spread } from 'patronum/spread';
-import { getResetKey, getUnitSourceKey, multiplyUnitCallErrorMessage, removeDollarPrefix } from './shared';
+import { getResetKey, getUnitSourceKey, removeDollarPrefix } from './shared';
 import type { SoureShape, ClockShape, GetSourceValue, GetClockValue, TargetShape } from './types';
 
 const getUnitTargetKey = () => `__unitTargetKey__`;
 const getStoreForPrevValueKey = (storeName: string) => `__${storeName}_prevValue__`;
 const asyncUnitChangeErrorMessage = (unitName: string) =>
   `effector-action Warning. Unit: "${unitName}". Async unit changes are not allowed. All async changes will not be applied`;
+export const multiplyUnitCallErrorMessage = (unitName: string) =>
+  `effector-action Warning. Unit: "${unitName}". Multiple calls of same target in "fn" is not allowed. Only last change will be applied`;
 
 type CreateCallableTargets<Target extends TargetShape | UnitTargetable<any>> =
   Target extends Record<string, UnitTargetable<any>>

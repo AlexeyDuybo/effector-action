@@ -13,8 +13,11 @@ import {
   UnitValue,
 } from 'effector';
 import type { SoureShape, GetSourceValue, TargetShape } from './types';
-import { getResetKey, getUnitSourceKey, multiplyUnitCallErrorMessage, removeDollarPrefix } from './shared';
+import { getResetKey, getUnitSourceKey, removeDollarPrefix } from './shared';
 import { spread } from 'patronum';
+
+export const multiplyUnitCallErrorMessage = (unitName: string) =>
+  `[Async Action Error]. Target: "${unitName}". Multiple calls of same target in single tick are not allowed.`;
 
 const promiseWithResolver = () => {
   let resolve: () => void;
@@ -99,7 +102,8 @@ export function createAsyncAction<
   }
 
   const fx = createEffect((clock: ClockValue) => {
-    let targetsToChange: Record<string, any> = {};
+    let targetsToChangePerTick: Record<string, any> = {};
+    const unitsToChangePerTick = new Set();
     let batchingStatus: false | Promise<void> = false;
 
     const boundSetState = scopeBind(setState, { safe: true });
@@ -109,8 +113,9 @@ export function createAsyncAction<
       const batchingPromise = promiseWithResolver();
       batchingStatus = batchingPromise.promise;
       Promise.resolve().then(() => {
-        boundSetState(targetsToChange);
-        targetsToChange = {};
+        boundSetState(targetsToChangePerTick);
+        targetsToChangePerTick = {};
+        unitsToChangePerTick.clear();
         batchingPromise.resolve();
         batchingStatus = false;
       });
@@ -118,29 +123,32 @@ export function createAsyncAction<
 
     const createSetter = (unitName: string, unit: Unit<any>) => {
       const setter = (value: unknown) => {
-        update();
-        if (unitName in targetsToChange) {
-          console.error(multiplyUnitCallErrorMessage(unitName));
+        if (unitsToChangePerTick.has(unitName)) {
+          throw new Error(multiplyUnitCallErrorMessage(unitName))
         }
+        unitsToChangePerTick.add(unitName);
+        update();
+
 
         // TDOO call effects via sample
         if (is.effect(unit)) {
           return unit(value);
         }
 
-        targetsToChange[unitName] = value;
+        targetsToChangePerTick[unitName] = value;
 
         return value;
       };
 
       if (is.store(unit)) {
         setter.reinit = () => {
-          update();
           const resetKey = getResetKey(unitName);
-          if (resetKey in targetsToChange) {
-            console.error(multiplyUnitCallErrorMessage(unitName + '.reinit'));
+          if (unitsToChangePerTick.has(resetKey)) {
+            throw new Error(multiplyUnitCallErrorMessage(unitName + '.reinit'))
           }
-          targetsToChange[resetKey] = undefined;
+          unitsToChangePerTick.add(resetKey);
+          update();
+          targetsToChangePerTick[resetKey] = undefined;
         };
       }
 

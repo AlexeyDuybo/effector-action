@@ -1,7 +1,6 @@
 import { describe, it, expect, vitest } from 'vitest';
 import { Scope, Unit, allSettled, createEffect, createEvent, createStore, createWatch, fork, sample } from 'effector';
-import { createAsyncAction } from './async-action';
-import { multiplyUnitCallErrorMessage } from './shared';
+import { createAsyncAction, multiplyUnitCallErrorMessage } from './async-action';
 
 const createSpy = ({ scope, unit }: { scope: Scope; unit: Unit<any> }) => {
   const fn = vitest.fn();
@@ -162,59 +161,6 @@ describe('createAsyncAction', () => {
 
       expect(reinitSpy).toHaveBeenCalledOnce();
     });
-    it('shows warning and apply last change if store reset event called more than 1 time', async () => {
-      const storeName = '$store';
-      const consoleErrorSpy = vitest.spyOn(console, 'error');
-      const scope = fork();
-      const $store = createStore('');
-      const fn = vitest.fn((target: any) => {
-        target.$store.reinit();
-        target.$store.reinit();
-      });
-      const action = createAsyncAction({
-        target: {
-          [storeName]: $store,
-        },
-        fn,
-      });
-      const reinitSpy = createSpy({
-        scope,
-        unit: $store.reinit,
-      });
-
-      await allSettled(action, { scope });
-
-      expect(consoleErrorSpy).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${storeName}.reinit`));
-      expect(reinitSpy).toHaveBeenCalledOnce();
-    });
-    it.each([createStore(''), createEvent<string>()])(
-      'shows warning and apply last change if unit called more than 1 time',
-      async (unit) => {
-        const unitName = 'unit';
-        const consoleErrorSpy = vitest.spyOn(console, 'error');
-        const scope = fork();
-        const lastUnitChange = 'bar';
-        const fn = vitest.fn((target: any) => {
-          target.unit('foo');
-          target.unit(lastUnitChange);
-        });
-        const action = createAsyncAction({
-          target: {
-            [unitName]: unit,
-          },
-          fn,
-        });
-        const unitSpy = createSpy({ scope, unit });
-
-        await allSettled(action, { scope });
-
-        expect(consoleErrorSpy).toHaveBeenCalledOnce();
-        expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${unitName}`));
-        expect(unitSpy).toHaveBeenCalledOnce();
-        expect(unitSpy).toHaveBeenCalledWith(lastUnitChange);
-      },
-    );
     it('if clock is not passed to the config, return clock and pass its payload to fn', async () => {
       const scope = fork();
       const fn = vitest.fn((_: any, clock: string) => {});
@@ -346,37 +292,72 @@ describe('createAsyncAction', () => {
       expect(sourceSpy).nthCalledWith(3, 2);
       expect(sourceSpy).nthCalledWith(4, 3);
     });
-    it.each([createStore(''), createEvent<string>()])(
-      'shows warning and apply last change if unit called more than 1 time',
+    it('throws error if .reset applied more than 1 time in tick', async () => {
+      const storeName = '$store';
+      const consoleErrorSpy = vitest.spyOn(console, 'error');
+      const scope = fork();
+      const $store = createStore('');
+      const track = vitest.fn();
+
+      const action = createAsyncAction({
+        target: {
+          [storeName]: $store,
+        },
+        fn: (target) => {
+          target[storeName].reinit();
+          try {
+            target[storeName].reinit();
+          } catch (e) {
+            track(e);     
+            throw e;       
+          }
+        }
+      });
+      const reinitSpy = createSpy({
+        scope,
+        unit: $store.reinit,
+      });
+
+      await allSettled(action, { scope });
+
+      expect(consoleErrorSpy).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(new Error(multiplyUnitCallErrorMessage(`${storeName}.reinit`)));
+      expect(reinitSpy).toHaveBeenCalledOnce();
+      expect(track).toHaveBeenCalledOnce();
+      expect(track).toHaveBeenCalledWith(new Error(multiplyUnitCallErrorMessage(`${storeName}.reinit`)));
+    });
+    it.each([createStore(''), createEvent<string>(), createEffect<string, null>(() => null)])(
+      'throws error if unit changed more than 1 time in tick',
       async (unit) => {
         const unitName = 'unit';
         const consoleErrorSpy = vitest.spyOn(console, 'error');
         const scope = fork();
-        const lastUnitChange = 'bar';
-        const fn = vitest.fn(async (target: any) => {
-          target.unit('foo');
-          target.unit(lastUnitChange + 1);
-
-          await wait();
-
-          target.unit('foo');
-          target.unit(lastUnitChange + 2);
-        });
+        const track = vitest.fn();
+        
         const action = createAsyncAction({
           target: {
             [unitName]: unit,
           },
-          fn,
+          fn: (target) => {
+            target.unit('foo');
+            try {
+              target.unit('bar');
+            } catch (e) {
+              track(e);     
+              throw e;
+            }
+          },
         });
         const unitSpy = createSpy({ scope, unit });
 
         await allSettled(action, { scope });
 
-        expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-        expect(consoleErrorSpy).toHaveBeenCalledWith(multiplyUnitCallErrorMessage(`${unitName}`));
-        expect(unitSpy).toHaveBeenCalledTimes(2);
-        expect(unitSpy).nthCalledWith(1, lastUnitChange + 1);
-        expect(unitSpy).nthCalledWith(2, lastUnitChange + 2);
+        expect(consoleErrorSpy).toHaveBeenCalledOnce();
+        expect(consoleErrorSpy).toHaveBeenCalledWith(new Error(multiplyUnitCallErrorMessage(`${unitName}`)));
+        expect(unitSpy).toHaveBeenCalledOnce();
+        expect(unitSpy).toHaveBeenCalledWith('foo');
+        expect(track).toHaveBeenCalledOnce();
+        expect(track).toHaveBeenCalledWith(new Error(multiplyUnitCallErrorMessage(`${unitName}`)));
       },
     );
     it('handle errors', async () => {

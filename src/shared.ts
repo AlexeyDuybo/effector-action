@@ -9,5 +9,3 @@ export const removeDollarPrefix = (sourceShape: SoureShape): SoureShape => {
   );
 };
 
-export const multiplyUnitCallErrorMessage = (unitName: string) =>
-  `effector-action Warning. Unit: "${unitName}". Multiple calls of same target in "fn" is not allowed. Only last change will be applied`;

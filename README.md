@@ -8,7 +8,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
 - [createAction](#createaction)
   - [Usage](#usage)
     - [Change units](#change-units)
-    - [Сhange store using reducer func](#сhange-store-using-reducer-func)
+    - [Change store using reducer func](#change-store-using-reducer-func)
     - [Reset store](#reset-store)
     - [Clock](#clock)
     - [Alternative api for external clock usage (Recommended)](#alternative-api-for-external-clock-usage-recommended)
@@ -21,6 +21,9 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Source](#source-1)
   - [Return value](#return-value)
   - [Action paramaters](#action-parameters)
+  - [Limitation](#async-action-limitation)
+  - [Error logging](#error-logging)
+  
 - [Parameter type inference](#parameter-type-inference)
 
 ## Library status
@@ -110,7 +113,7 @@ const changeValues = createAction({
 changeValues();
 ```
 
-#### Сhange store using reducer func
+#### Change store using reducer func
 
 You can change store values ​​using the reducer function and based on the current state of the store.
 
@@ -161,7 +164,7 @@ createAction({
 });
 ```
 
-Сlock value is available in the last parameter of `fn`
+Clock value is available in the last parameter of `fn`
 
 ```ts
 const clock = createEvent<string>();
@@ -476,6 +479,47 @@ const onUserNameChangeFx = createAsyncAction({
   },
 });
 ```
+
+### Async Action Limitation
+
+#### Functions that change units should be called no more than once in one tick.
+
+You can call the same function multiple times if they are called in different micro tasks.
+Calling the same function in a single tick will result in an error.
+
+WRONG. multiple calls in single tick
+```ts
+fn: (target) => {
+  target.$store('foo');
+  target.$store('bar'); // Error
+},
+```
+
+WRONG. multiple calls in single tick
+```ts
+async fn: (target) => {
+  const result = await Promise([
+    target.someFx(1);
+    target.someFx(2); // Error
+  ]);
+},
+```
+
+OK. multiple calls in different ticks
+```ts
+fn: (target) => {
+  target.$store('foo');
+  await target.someFx(1);
+  target.$store('bar');
+},
+```
+
+### Error logging
+
+Unlike effects, when an error occurs in Async Action, it will be logged using `console.error`. The location where the error occurred specifically in Async Action can be traced through the stack trace. It will be located near the asyncActionWrapper function.
+
+<img src="./docs/img/error.png" alt="stack trace" width="400"/>
+
 
 ## Parameter type inference
 

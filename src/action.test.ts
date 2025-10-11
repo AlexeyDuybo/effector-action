@@ -1,7 +1,6 @@
 import { describe, it, expect, vitest } from 'vitest';
 import { Scope, Unit, allSettled, createEffect, createEvent, createStore, createWatch, fork } from 'effector';
-import { createAction } from './action';
-import { multiplyUnitCallErrorMessage } from './shared';
+import { createAction, multiplyUnitCallErrorMessage } from './action';
 
 const createSpy = ({ scope, unit }: { scope: Scope; unit: Unit<any> }) => {
   const fn = vitest.fn();
