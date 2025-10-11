@@ -394,7 +394,7 @@ describe('createAsyncAction', () => {
 
       expect(await allSettled(action, { scope })).toEqual({ status: 'fail', value: new Error('error') });
       expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
-      expect(consoleErrorSpy).toHaveBeenCalledWith('[Error in Async Action]:', new Error('error'));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(new Error('error'));
     });
     it('async change units and returns value', async () => {
       const scope = fork();

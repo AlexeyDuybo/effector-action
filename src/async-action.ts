@@ -151,20 +151,20 @@ export function createAsyncAction<
       Object.entries(config.target).map(([unitName, unit]) => [unitName, createSetter(unitName, unit)]),
     );
 
-    return new Promise<ActionResult>((resolve, reject) => {
+    async function asyncActionWrapper () {
       try {
         if (config.source && getSourceFx) {
-          resolve(config.fn(fnTarget as any, () => getSourceFx(batchingStatus), clock));
+          return await (config.fn(fnTarget as any, () => getSourceFx(batchingStatus), clock));
         } else {
-          resolve(config.fn(fnTarget as any, clock));
+          return await (config.fn(fnTarget as any, clock));
         }
       } catch (e) {
-        reject(e);
+        console.error(e);
+        throw e;
       }
-    }).catch((error) => {
-      console.error('[Error in Async Action]:', error);
-      throw error;
-    });
+    };
+
+    return asyncActionWrapper();
   });
 
   sample({
