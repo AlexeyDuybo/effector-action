@@ -91,6 +91,49 @@ describe('createAsyncAction/types', () => {
       expectTypeOf(clock55).toEqualTypeOf<Effect<string | number | null, void, unknown>>();
     });
 
+    it('config fn', () => {
+      const fx1 = createAsyncAction(() => ({
+        source: createStore(''),
+        target: { target: createStore('') },
+        fn: (target, getSource, clock: string) => {
+          expectTypeOf(target).toEqualTypeOf<{
+            target: ((valueOrFn: string) => string) & {
+                reinit: () => void;
+            };
+          }>()
+          expectTypeOf(getSource).toEqualTypeOf<() => Promise<string>>()
+          return 10;
+        }
+      }));
+      expectTypeOf(fx1).toEqualTypeOf<Effect<string, number, unknown>>()
+      const fx2 = createAsyncAction(() => ({
+        source: createStore(''),
+        target: { target: createStore('') },
+        fn: (target, getSource) => {
+          expectTypeOf(target).toEqualTypeOf<{
+            target: ((valueOrFn: string) => string) & {
+                reinit: () => void;
+            };
+          }>()
+          expectTypeOf(getSource).toEqualTypeOf<() => Promise<string>>()
+          return 10;
+        }
+      }));
+      expectTypeOf(fx2).toEqualTypeOf<Effect<void, number, unknown>>()
+      const fx3 = createAsyncAction(() => ({
+        target: { target: createStore('') },
+        fn: (target) => {
+          expectTypeOf(target).toEqualTypeOf<{
+            target: ((valueOrFn: string) => string) & {
+                reinit: () => void;
+            };
+          }>()
+          return 10;
+        }
+      }));
+      expectTypeOf(fx3).toEqualTypeOf<Effect<void, number, unknown>>()
+    })
+
     it('source', () => {
       createAsyncAction({
         source: createStore(''),

@@ -21,6 +21,7 @@ Therefore this abstraction can serve as a convenient replacement for one or more
   - [Source](#source-1)
   - [Return value](#return-value)
   - [Action paramaters](#action-parameters)
+  - [Circular references](#circular-references)
   - [Limitation](#async-action-limitation)
   - [Error logging](#error-logging)
 - [Parameter type inference](#parameter-type-inference)
@@ -477,6 +478,61 @@ const onUserNameChangeFx = createAsyncAction({
     // ...
   },
 });
+```
+
+### Circular references
+
+Async action can reference units declared below in the code, or reference itself. To do this, you need to pass a function that returns the action config.
+Important!: If you pass a function with the config, the action initialization will occur in the next microtask, and synchronous calls to the action before its initialization will result in an error.
+
+Using units declared below in the code:
+```ts
+const actionFx = createAsyncAction(() => ({
+    source: $someStore,
+    target: {
+      someEvent
+    },
+    fn: (target, getSourceFx) => {
+      // ...
+    }
+
+}));
+
+const $someStore = createStore(0);
+const someEvent = createEvent();
+```
+
+Self-reference:
+```ts
+// need to manually specify type when self-referencing
+const updateUserFx: Effect<User, User> = createAsyncAction(() => ({
+  source: {
+    $isUpdating: updateUserFx.pending, // self reference
+  },
+  target: { /*...*/ },
+  fn: async (target, getSource) => {
+    const { isUpdating } = await getSource();
+    if (isUpdating) return;
+    // ...
+  }
+}));
+```
+
+WRONG USAGE:
+```ts
+const actionFx = createAsyncAction(() => ({
+    target: {
+      someEvent
+    },
+    fn: (target, getSourceFx) => {
+      // ...
+    }
+
+}));
+
+const someEvent = createEvent();
+
+actionFx(); // Error: actionFx is not initialized
 ```
 
 ### Async Action Limitation

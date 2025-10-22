@@ -1,6 +1,6 @@
 import { describe, it, expect, vitest } from 'vitest';
-import { Scope, Unit, allSettled, createEffect, createEvent, createStore, createWatch, fork, sample } from 'effector';
-import { createAsyncAction, multiplyUnitCallErrorMessage } from './async-action';
+import { Scope, Unit, UnitTargetable, allSettled, createEffect, createEvent, createStore, createWatch, fork, sample } from 'effector';
+import { configInitializationErrorMessage, createAsyncAction, multiplyUnitCallErrorMessage } from './async-action';
 
 const createSpy = ({ scope, unit }: { scope: Scope; unit: Unit<any> }) => {
   const fn = vitest.fn();
@@ -430,4 +430,50 @@ describe('createAsyncAction', () => {
       expect(scope.getState($store)).toEqual(16);
     });
   });
+  describe('cyclic reference', () => {
+    it('can handle cycle references', async () => {
+      const factory = ({ action }: { action: UnitTargetable<number> }) => {
+        return {
+          $someStore: createStore(1),
+          someEvent: createEvent<number>(),
+          action,
+        }
+      };
+      const model = factory({
+        action: createAsyncAction(() => ({
+          source: model.$someStore,
+          target: {
+            event: model.someEvent,
+            store: model.$someStore,
+          },
+          fn: async (target, getSource, inc: number) => {
+            target.event(await getSource() + inc);
+            target.store(await getSource() + inc);
+          }
+        }))
+      });
+      const scope = fork();
+      const eventSpy = createSpy({ scope, unit: model.someEvent });
+
+      await wait();
+      await allSettled(model.action, { scope, params: 3 });
+      
+      expect(scope.getState(model.$someStore)).toEqual(4);
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      expect(eventSpy).toHaveBeenCalledWith(4);
+    })
+    it('throws error if action called before config initialization', async () => {
+      const actionFx = createAsyncAction(() => ({
+        target: {},
+        fn: async () => {
+          return
+        }
+      }));
+      const scope = fork();
+
+      const result = await allSettled(actionFx, { scope });
+
+      expect(result).toEqual({ status: 'fail', value: new Error(configInitializationErrorMessage) });
+    })
+  })
 });

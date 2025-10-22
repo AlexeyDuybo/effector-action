@@ -18,6 +18,9 @@ import { spread } from 'patronum';
 
 export const multiplyUnitCallErrorMessage = (unitName: string) =>
   `[Async Action Error]. Target: "${unitName}". Multiple calls of same target in single tick are not allowed.`;
+export const configInitializationErrorMessage = '[Async Action Error]. Action was called before config was initialized. If you are passing config as a function, make sure that action is not called syncronously after creation';
+
+type ConfigFactory<Config> = Config | (() => Config);
 
 const promiseWithResolver = () => {
   let resolve: () => void;
@@ -45,7 +48,7 @@ export function createAsyncAction<
   Src extends SoureShape | Store<any>,
   ClockValue = void,
   ActionResult = void,
->(config: {
+>(configFactory: ConfigFactory<{
   source: Src;
   target: Target;
   fn: (
@@ -53,19 +56,19 @@ export function createAsyncAction<
     getSource: () => Promise<GetSourceValue<Src>>,
     clock: ClockValue,
   ) => ActionResult;
-}): Effect<ClockValue, Awaited<ActionResult>, unknown>;
+}>): Effect<ClockValue, Awaited<ActionResult>, unknown>;
 
-export function createAsyncAction<Target extends TargetShape, ClockValue = void, ActionResult = void>(config: {
+export function createAsyncAction<Target extends TargetShape, ClockValue = void, ActionResult = void>(configFactory: ConfigFactory<{
   target: Target;
   fn: (target: CreateCallableTargets<Target>, clock: ClockValue) => ActionResult;
-}): Effect<ClockValue, Awaited<ActionResult>, unknown>;
+}>): Effect<ClockValue, Awaited<ActionResult>, unknown>;
 
 export function createAsyncAction<
   Target extends TargetShape,
   Src extends SoureShape | Store<any>,
   ClockValue = void,
   ActionResult = void,
->(config: {
+>(configFactory: ConfigFactory<{
   source?: Src;
   target: Target;
   fn: (
@@ -73,35 +76,15 @@ export function createAsyncAction<
     sourceOrClock: (() => Promise<GetSourceValue<Src>>) | ClockValue,
     clock?: ClockValue,
   ) => ActionResult;
-}): Effect<ClockValue, Awaited<ActionResult>, unknown> {
-  const target: TargetShape = { ...config.target };
-  const source: SoureShape = is.unit(config.source)
-    ? { [getUnitSourceKey()]: config.source }
-    : removeDollarPrefix({ ...config.source });
-
-  Object.entries(target).forEach(([targetName, targetUnit]) => {
-    if (is.store(targetUnit)) {
-      target[getResetKey(targetName)] = targetUnit.reinit;
-    }
-  });
-
+}>): Effect<ClockValue, Awaited<ActionResult>, unknown> {
+  let getSourceFx: undefined | Effect<false | Promise<void>, any>;
+  let config: undefined | ReturnType<Extract<typeof configFactory, Function>>;
   const setState = createEvent<Record<string, any>>();
 
-  let getSourceFx: Effect<false | Promise<void>, any>;
-  if (config.source) {
-    const getSourceValueFx = attach({
-      source,
-      effect: async (sourceValue) => {
-        return is.unit(config.source) ? sourceValue[getUnitSourceKey()] : sourceValue;
-      },
-    });
-    getSourceFx = createEffect(async (batchingStatus: false | Promise<void>) => {
-      if (batchingStatus) await batchingStatus;
-      return getSourceValueFx();
-    });
-  }
-
   const fx = createEffect((clock: ClockValue) => {
+    if (!config) {
+      throw new Error(configInitializationErrorMessage)
+    }
     let targetsToChangePerTick: Record<string, any> = {};
     const unitsToChangePerTick = new Set();
     let batchingStatus: false | Promise<void> = false;
@@ -160,10 +143,10 @@ export function createAsyncAction<
 
     async function asyncActionWrapper() {
       try {
-        if (config.source && getSourceFx) {
-          return await config.fn(fnTarget as any, () => getSourceFx(batchingStatus), clock);
+        if (config!.source && getSourceFx) {
+          return await config!.fn(fnTarget as any, () => getSourceFx!(batchingStatus), clock);
         } else {
-          return await config.fn(fnTarget as any, clock);
+          return await config!.fn(fnTarget as any, clock);
         }
       } catch (e) {
         console.error(e);
@@ -174,10 +157,40 @@ export function createAsyncAction<
     return asyncActionWrapper();
   });
 
-  sample({
-    clock: setState,
-    target: spread(target),
-  });
+  (async () => {
+    config = typeof configFactory === 'function'
+      ? ((await Promise.resolve()), configFactory())
+      : configFactory;
+
+    const target: TargetShape = { ...config.target };
+    const source: SoureShape = is.unit(config.source)
+      ? { [getUnitSourceKey()]: config.source }
+      : removeDollarPrefix({ ...config.source });
+
+    Object.entries(target).forEach(([targetName, targetUnit]) => {
+      if (is.store(targetUnit)) {
+        target[getResetKey(targetName)] = targetUnit.reinit;
+      }
+    });
+
+    if (config.source) {
+      const getSourceValueFx = attach({
+        source,
+        effect: async (sourceValue) => {
+          return is.unit(config!.source) ? sourceValue[getUnitSourceKey()] : sourceValue;
+        },
+      });
+      getSourceFx = createEffect(async (batchingStatus: false | Promise<void>) => {
+        if (batchingStatus) await batchingStatus;
+        return getSourceValueFx();
+      });
+    }
+
+    sample({
+      clock: setState,
+      target: spread(target),
+    });
+  })();
 
   // @ts-expect-error
   return fx;
